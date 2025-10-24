@@ -68,13 +68,68 @@ scala-multipart-client/
     └── integration/
 ```
 
-## Quick Start
+## Installation
 
-### 1. Add Dependency
+### Maven Central (Recommended)
+
+Add to your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.multipart" %% "scala-multipart-client" % "0.1.0"
+libraryDependencies += "io.github.ahoubouby" %% "scala-multipart-client" % "0.1.0"
 ```
+
+### GitHub Packages
+
+Add to your `build.sbt`:
+
+```scala
+resolvers += "GitHub Package Registry" at "https://maven.pkg.github.com/ahoubouby/scala-multipart-client"
+
+credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  "YOUR_GITHUB_USERNAME",
+  "YOUR_GITHUB_TOKEN"  // Personal access token with read:packages
+)
+
+libraryDependencies += "io.github.ahoubouby" %% "scala-multipart-client" % "0.1.0"
+```
+
+### Mill
+
+```scala
+def ivyDeps = Agg(
+  ivy"io.github.ahoubouby::scala-multipart-client:0.1.0"
+)
+```
+
+### Maven
+
+```xml
+<dependency>
+    <groupId>io.github.ahoubouby</groupId>
+    <artifactId>scala-multipart-client_2.13</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+### Gradle
+
+```gradle
+dependencies {
+    implementation 'io.github.ahoubouby:scala-multipart-client_2.13:0.1.0'
+}
+```
+
+## Quick Start
+
+### 1. Setup Dependencies
+
+Ensure your project includes the required dependencies (they're automatically included as transitive dependencies):
+
+- Scala 2.13.16
+- Play Framework 3.0.4 (with Pekko)
+- Pekko Streams 1.0.2
 
 ### 2. Basic Usage
 
