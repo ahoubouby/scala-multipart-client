@@ -1,0 +1,14 @@
+------mixed-boundary
+Content-ID: <part1>
+Content-Type: text/plain
+
+Plain text content for shipping instructions.
+Please handle with care.
+------mixed-boundary
+Content-Location: /path/to/barcode
+Content-Type: image/png
+
+‰PNG
+
+IHDR€€€€€€€€€€€€€€€€€€€€€€€€€€€€
+------mixed-boundary--

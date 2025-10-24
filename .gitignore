@@ -3,6 +3,7 @@ target
 /.bsp
 /.idea
 examples/*/project/
+.metals/
 /.idea_modules
 /.classpath
 /.project

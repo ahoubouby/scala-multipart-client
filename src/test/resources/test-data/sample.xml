@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shipment>
+  <parcelNumber>PKG-12345</parcelNumber>
+  <trackingNumber>1Z999AA10123456784</trackingNumber>
+  <service>express</service>
+  <destination>
+    <address>123 Main St</address>
+    <city>New York</city>
+    <state>NY</state>
+    <zipCode>10001</zipCode>
+    <country>USA</country>
+  </destination>
+  <sender>
+    <name>ACME Corp</name>
+    <address>456 Business Ave</address>
+    <city>Los Angeles</city>
+    <state>CA</state>
+    <zipCode>90001</zipCode>
+    <country>USA</country>
+  </sender>
+  <weight unit="kg">2.5</weight>
+  <dimensions unit="cm">
+    <length>30</length>
+    <width>20</width>
+    <height>15</height>
+  </dimensions>
+  <createdAt>2025-10-24T19:39:15Z</createdAt>
+</shipment>
