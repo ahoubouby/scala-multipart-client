@@ -9,7 +9,6 @@ import org.apache.pekko.stream.scaladsl._
 import org.apache.pekko.util.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** High-level multipart parser with Pekko Streams
   */
