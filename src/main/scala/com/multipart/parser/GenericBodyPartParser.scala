@@ -155,7 +155,6 @@ private object Parser {
       try {
         val currentEnd = s.boyerMoore.nextIndex(s.input, offset)
         val needleEnd  = currentEnd + s.boundary.length
-        val dataLen    = currentEnd - offset
         if (crlf(s.input, needleEnd))
           Step(s.copy(phase = Headers(needleEnd + 2, mem)), EmitBytes(s.input.slice(offset, currentEnd)) :: Nil)
         else if (doubleDash(s.input, needleEnd))
@@ -257,7 +256,6 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
     extends GraphStage[FlowShape[ByteString, RawPart]]
     with LazyLogging {
 
-  import ByteStringHelpers._
   import Parser._
 
   require(config.boundary.nonEmpty, "'boundary' parameter must be non-empty")

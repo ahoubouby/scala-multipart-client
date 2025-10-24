@@ -1,25 +1,30 @@
 package com.multipart.parser
 
+import scala.concurrent.{ExecutionContext, Future}
+
 import com.multipart.client._
 import com.multipart.model._
 import com.multipart.parser.Part.RawPart
+
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.pekko.stream._
 import org.apache.pekko.stream.scaladsl._
 import org.apache.pekko.util.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
-
-/** High-level multipart parser with Pekko Streams
-  */
+/**
+ * High-level multipart parser with Pekko Streams
+ */
 object MultipartParser extends LazyLogging {
 
-  /** Parse multipart response automatically detecting format
-    */
+  /**
+   * Parse multipart response automatically detecting format
+   */
   def parse(
     response: HttpResponse,
-    config:   Option[MultipartParserConfig] = None,
-  )(implicit mat: Materializer, ec: ExecutionContext): Future[MultipartResult] = {
+    config: Option[MultipartParserConfig] = None,
+  )(implicit mat: Materializer,
+    ec: ExecutionContext,
+  ): Future[MultipartResult] = {
 
     logger.info(s"Starting multipart parse for response with status ${response.status}")
 
@@ -48,7 +53,8 @@ object MultipartParser extends LazyLogging {
     parseStream(response.bodyAsSource, parserConfig, detected)
   }
 
-  /** Parse a multipart HTTP stream into a structured result.
+  /**
+   * Parse a multipart HTTP stream into a structured result.
    *
    * Pipeline (high-level):
    *   ByteString
@@ -61,10 +67,12 @@ object MultipartParser extends LazyLogging {
    *     ──► Sink.seq                              // collect all parts
    */
   private def parseStream(
-    source:   Source[ByteString, _],
-    config:   MultipartParserConfig,
+    source: Source[ByteString, _],
+    config: MultipartParserConfig,
     detected: DetectedFormat,
-  )(implicit mat: Materializer, ec: ExecutionContext): Future[MultipartResult] = {
+  )(implicit mat: Materializer,
+    ec: ExecutionContext,
+  ): Future[MultipartResult] = {
 
     logger.info("Building parsing flow with splitWhen/prefixAndTail composition")
 
@@ -76,7 +84,7 @@ object MultipartParser extends LazyLogging {
         .withAttributes(
           Attributes.logLevels(
             onElement = Attributes.LogLevels.Debug,
-            onFinish  = Attributes.LogLevels.Info,
+            onFinish = Attributes.LogLevels.Info,
             onFailure = Attributes.LogLevels.Error,
           ),
         )
@@ -107,11 +115,11 @@ object MultipartParser extends LazyLogging {
     // Compose the graph **in one chain** so SubFlow methods are available in-place
     val collected: Future[Seq[(String, ProcessedPartData)]] =
       source
-        .via(parseRawParts) // ByteString → RawPart
-        .splitWhen(_.isLeft) // SubFlow[RawPart, …]
-        .prefixAndTail(1) // (Seq[RawPart], Source[RawPart,_])
-        .map(reconstruct) // Part[Source[ByteString,_]] (still SubFlow)
-        .concatSubstreams // back to Flow[Part[Source[ByteString,_]], …]
+        .via(parseRawParts)           // ByteString → RawPart
+        .splitWhen(_.isLeft)          // SubFlow[RawPart, …]
+        .prefixAndTail(1)             // (Seq[RawPart], Source[RawPart,_])
+        .map(reconstruct)             // Part[Source[ByteString,_]] (still SubFlow)
+        .concatSubstreams             // back to Flow[Part[Source[ByteString,_]], …]
         .via(
           Flow[Part[Source[ByteString, _]]]
             .mapAsync(1)(processPart) // Part[...] → (key, processedData)
@@ -134,11 +142,14 @@ object MultipartParser extends LazyLogging {
       }
   }
 
-  /** Process individual part - materialize body and extract metadata
-    */
+  /**
+   * Process individual part - materialize body and extract metadata
+   */
   private def processPart(
     part: Part[Source[ByteString, _]],
-  )(implicit mat: Materializer, ec: ExecutionContext): Future[(String, ProcessedPartData)] =
+  )(implicit mat: Materializer,
+    ec: ExecutionContext,
+  ): Future[(String, ProcessedPartData)] =
     part match {
       case DataPart(key, value) =>
         logger.debug(s"Processing DataPart: key=$key, size=${value.size}")
@@ -189,11 +200,11 @@ object MultipartParser extends LazyLogging {
           case Some(cid) if !headers.contains("content-disposition") =>
             // This is likely multipart/related
             RelatedPartInfo(
-              contentId       = cid,
-              contentType     = headers.get("content-type"),
+              contentId = cid,
+              contentType = headers.get("content-type"),
               contentLocation = headers.get("content-location"),
             )
-          case _ =>
+          case _                                                     =>
             UnknownPartInfo(headers)
         }
 
@@ -229,10 +240,11 @@ object MultipartParser extends LazyLogging {
         )
     }
 
-  /** Assemble final MultipartResult from processed parts
-    */
+  /**
+   * Assemble final MultipartResult from processed parts
+   */
   private def assembleResult(
-    parts:    Seq[(String, ProcessedPartData)],
+    parts: Seq[(String, ProcessedPartData)],
     detected: DetectedFormat,
   ): MultipartResult = {
 
@@ -250,9 +262,9 @@ object MultipartParser extends LazyLogging {
     val result = MultipartResult(
       parts = multipartParts,
       metadata = MultipartMetadata(
-        format      = detected.format,
-        boundary    = detected.boundary,
-        rootPart    = detected.rootPart,
+        format = detected.format,
+        boundary = detected.boundary,
+        rootPart = detected.rootPart,
         contentType = detected.contentType,
       ),
     )
@@ -260,19 +272,11 @@ object MultipartParser extends LazyLogging {
     logger.info(s"Result assembled: ${result.parts.size} parts, format=${result.metadata.format.name}")
     result
   }
-
-  /** Supervision strategy for stream processing
-    */
-  private val supervisionDecider: Supervision.Decider = {
-    case ex: Exception =>
-      logger.error(s"Stream error occurred: ${ex.getMessage}", ex)
-      Supervision.Resume // Resume processing on errors
-  }
 }
 
-/** Internal data structure for processed parts
-  */
+/**
+ * Internal data structure for processed parts
+ */
 private case class ProcessedPartData(
   info: PartInfo,
-  data: Array[Byte],
-)
+  data: Array[Byte])

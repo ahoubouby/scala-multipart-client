@@ -88,22 +88,6 @@ object FormatDetector extends LazyLogging {
 
     start
   }
-
-  /** Extract type parameter from Content-Type header (for multipart/related)
-    *
-    * Example: multipart/related; type="application/json"; boundary="abc"
-    */
-  private def extractTypeParameter(contentType: String): Option[String] = {
-    val TypePattern = """type="?([^";]+)"?""".r
-
-    val typeParam = TypePattern.findFirstMatchIn(contentType).map(_.group(1))
-
-    typeParam.foreach(
-      t => logger.debug(s"Type parameter found: $t"),
-    )
-
-    typeParam
-  }
 }
 
 /** Detected multipart format information

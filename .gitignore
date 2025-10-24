@@ -2,6 +2,7 @@ logs
 target
 /.bsp
 /.idea
+examples/*/project/
 /.idea_modules
 /.classpath
 /.project
