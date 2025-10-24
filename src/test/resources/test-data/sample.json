@@ -1,0 +1,31 @@
+{
+  "parcelNumber": "PKG-12345",
+  "trackingNumber": "1Z999AA10123456784",
+  "service": "express",
+  "destination": {
+    "address": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "zipCode": "10001",
+    "country": "USA"
+  },
+  "sender": {
+    "name": "ACME Corp",
+    "address": "456 Business Ave",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zipCode": "90001",
+    "country": "USA"
+  },
+  "weight": {
+    "value": 2.5,
+    "unit": "kg"
+  },
+  "dimensions": {
+    "length": 30,
+    "width": 20,
+    "height": 15,
+    "unit": "cm"
+  },
+  "createdAt": "2025-10-24T19:39:15Z"
+}
