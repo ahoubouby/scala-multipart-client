@@ -1,6 +1,7 @@
 package com.multipart.model
 
 import com.multipart.client._
+import com.multipart.utils.ContentTypeDetector
 
 /** A single part from a multipart response
   */
@@ -15,38 +16,27 @@ case class MultipartPart(
 
   /** Content-Type header if present
     */
-  def contentType: Option[String] = None // info.contentType
+  def contentType: Option[String] = info match {
+    case f: FormDataPartInfo => f.contentType
+    case r: RelatedPartInfo  => r.contentType
+    case u: UnknownPartInfo  => u.headers.get("content-type")
+  }
 
   /** Check if this part is JSON based on content-type or content
     */
-  def isJson: Boolean =
-    contentType.exists(
-      ct => ct.contains("json") || ct.contains("application/json"),
-    ) || (data.length > 0 && {
-      val firstChar = data(0).toChar
-      firstChar == '{' || firstChar == '['
-    })
+  def isJson: Boolean = ContentTypeDetector.isJson(contentType, data)
 
   /** Check if this part is PDF based on content-type or magic bytes
     */
-  def isPdf: Boolean =
-    contentType.exists(_.contains("pdf")) ||
-      (data.length >= 4 && new String(data.take(4)) == "%PDF")
+  def isPdf: Boolean = ContentTypeDetector.isPdf(contentType, data)
 
   /** Check if this part is an image based on content-type
     */
-  def isImage: Boolean =
-    contentType.exists(_.startsWith("image/"))
+  def isImage: Boolean = ContentTypeDetector.isImage(contentType)
 
   /** Check if this part is XML based on content-type or content
     */
-  def isXml: Boolean =
-    contentType.exists(
-      ct => ct.contains("xml") || ct.contains("application/xml"),
-    ) || (data.length > 5 && {
-      val start = new String(data.take(5))
-      start.startsWith("<?xml") || start.startsWith("<")
-    })
+  def isXml: Boolean = ContentTypeDetector.isXml(contentType, data)
 
   /** Get data as UTF-8 string
     */
