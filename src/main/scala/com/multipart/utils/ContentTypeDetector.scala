@@ -11,7 +11,7 @@ object ContentTypeDetector {
   /** Check if content is JSON based on content-type or content analysis
     *
     * Detection strategies:
-    *   1. Content-Type contains "json" or "application/json"
+    *   1. Content-Type contains "json" or "application/json" (case-insensitive)
     *   2. First byte is '{' or '[' (JSON objects/arrays)
     *
     * @param contentType Optional Content-Type header value
@@ -19,7 +19,10 @@ object ContentTypeDetector {
     * @return true if content appears to be JSON
     */
   def isJson(contentType: Option[String], data: Array[Byte]): Boolean =
-    contentType.exists(ct => ct.contains("json") || ct.contains("application/json")) ||
+    contentType.exists(ct => {
+      val lower = ct.toLowerCase
+      lower.contains("json") || lower.contains("application/json")
+    }) ||
       (data.length > 0 && {
         val firstChar = data(0).toChar
         firstChar == '{' || firstChar == '['
@@ -28,7 +31,7 @@ object ContentTypeDetector {
   /** Check if content is PDF based on content-type or magic bytes
     *
     * Detection strategies:
-    *   1. Content-Type contains "pdf"
+    *   1. Content-Type contains "pdf" (case-insensitive)
     *   2. First 4 bytes are "%PDF" (PDF magic signature)
     *
     * @param contentType Optional Content-Type header value
@@ -36,24 +39,24 @@ object ContentTypeDetector {
     * @return true if content appears to be PDF
     */
   def isPdf(contentType: Option[String], data: Array[Byte]): Boolean =
-    contentType.exists(_.contains("pdf")) ||
+    contentType.exists(_.toLowerCase.contains("pdf")) ||
       (data.length >= 4 && new String(data.take(4)) == "%PDF")
 
   /** Check if content is an image based on content-type
     *
     * Detection strategy:
-    *   - Content-Type starts with "image/"
+    *   - Content-Type starts with "image/" (case-insensitive)
     *
     * @param contentType Optional Content-Type header value
     * @return true if content appears to be an image
     */
   def isImage(contentType: Option[String]): Boolean =
-    contentType.exists(_.startsWith("image/"))
+    contentType.exists(_.toLowerCase.startsWith("image/"))
 
   /** Check if content is XML based on content-type or content analysis
     *
     * Detection strategies:
-    *   1. Content-Type contains "xml" or "application/xml"
+    *   1. Content-Type contains "xml" or "application/xml" (case-insensitive)
     *   2. First 5 bytes start with "<?xml" or "<" (XML declaration or tag)
     *
     * @param contentType Optional Content-Type header value
@@ -61,7 +64,10 @@ object ContentTypeDetector {
     * @return true if content appears to be XML
     */
   def isXml(contentType: Option[String], data: Array[Byte]): Boolean =
-    contentType.exists(ct => ct.contains("xml") || ct.contains("application/xml")) ||
+    contentType.exists(ct => {
+      val lower = ct.toLowerCase
+      lower.contains("xml") || lower.contains("application/xml")
+    }) ||
       (data.length > 5 && {
         val start = new String(data.take(5))
         start.startsWith("<?xml") || start.startsWith("<")
@@ -98,12 +104,12 @@ object ContentTypeDetector {
     else contentType.trim
   }
 
-  /** Check if a content type matches a pattern
+  /** Check if a content type matches a pattern (case-insensitive)
     *
     * @param contentType The Content-Type to check
     * @param pattern The pattern to match (e.g., "json", "pdf", "image")
-    * @return true if the content type contains the pattern
+    * @return true if the content type contains the pattern (case-insensitive)
     */
   def matches(contentType: Option[String], pattern: String): Boolean =
-    contentType.exists(_.contains(pattern))
+    contentType.exists(_.toLowerCase.contains(pattern.toLowerCase))
 }
