@@ -7,8 +7,8 @@ version := "0.1.0-SNAPSHOT"
 scalaVersion := "2.13.16"
 
 // Play Framework 3.0.4 uses Pekko (not Akka)
-val playVersion = "3.0.4"
-val pekkoVersion = "1.0.2"
+val playVersion      = "3.0.4"
+val pekkoVersion     = "1.0.2"
 val pekkoHttpVersion = "1.0.1"
 
 libraryDependencies ++= Seq(
@@ -35,19 +35,20 @@ libraryDependencies ++= Seq(
   "org.scalatestplus.play" %% "scalatestplus-play" % "7.0.1" % Test,
   "org.mockito" %% "mockito-scala" % "1.17.30" % Test,
   "org.apache.pekko" %% "pekko-stream-testkit" % pekkoVersion % Test,
-  "org.apache.pekko" %% "pekko-testkit" % pekkoVersion % Test
+  "org.apache.pekko" %% "pekko-testkit" % pekkoVersion % Test,
 )
 
 // Compiler options
 scalacOptions ++= Seq(
-  "-encoding", "UTF-8",
+  "-encoding",
+  "UTF-8",
   "-deprecation",
   "-feature",
   "-unchecked",
   "-Xlint",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
-  "-Ywarn-value-discard"
+  "-Ywarn-value-discard",
 )
 
 // Test options
