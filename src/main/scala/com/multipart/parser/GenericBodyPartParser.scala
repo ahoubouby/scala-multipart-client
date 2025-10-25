@@ -317,7 +317,8 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
           push(out, h)
         } else if (finished) {
           completeStage()
-        } else if (!hasBeenPulled(in)) {
+        } else if (!upstreamFinished && !hasBeenPulled(in)) {
+          // Only pull if upstream hasn't finished yet
           pull(in)
         }
 
