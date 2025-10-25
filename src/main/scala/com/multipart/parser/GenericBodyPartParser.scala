@@ -283,8 +283,9 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
     new GraphStageLogic(shape) with InHandler with OutHandler with LazyLogging {
 
       // Internal buffer and state tracking (imperative shell)
-      private var queue    = collection.immutable.Queue.empty[RawPart]
-      private var finished = false
+      private var queue            = collection.immutable.Queue.empty[RawPart]
+      private var finished         = false // Parser finished (found closing boundary or error)
+      private var upstreamFinished = false // Upstream closed (HTTP response ended)
 
       // functional parser state
       private var state = State(
@@ -321,9 +322,31 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
         }
 
       override def onUpstreamFinish(): Unit = {
+        upstreamFinished = true // Mark that upstream is closed
+
         // If upstream finished but we still have buffered data, try to drive one last time.
-        if (state.input.nonEmpty && !finished) drive()
-        if (queue.isEmpty) completeStage()
+        if (state.input.nonEmpty && !finished) {
+          logger.debug("Upstream finished with buffered data, processing remaining bytes")
+          drive()
+        }
+
+        // Complete stage if no more data to emit
+        if (queue.isEmpty) {
+          if (!finished && state.input.nonEmpty) {
+            // We have buffered data but parser isn't finished - likely incomplete multipart
+            logger.warn(
+              s"Upstream finished with incomplete multipart data (${state.input.length} bytes buffered, phase: ${state.phase})",
+            )
+            queue = queue.enqueue(
+              Left(
+                ParseError(
+                  s"Incomplete multipart data: stream ended in phase ${state.phase} with ${state.input.length} bytes remaining",
+                ),
+              ),
+            )
+          }
+          completeStage()
+        }
       }
 
       // Drive the functional parser until it needs more bytes or terminates
@@ -358,7 +381,8 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
           val (h, t) = queue.dequeue
           queue = t
           push(out, h)
-        } else if (!finished && !hasBeenPulled(in)) {
+        } else if (!finished && !upstreamFinished && !hasBeenPulled(in)) {
+          // Only pull if upstream hasn't finished yet
           pull(in)
         } else if (finished && queue.isEmpty) {
           completeStage()

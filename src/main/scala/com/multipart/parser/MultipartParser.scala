@@ -23,6 +23,14 @@ object MultipartParser extends LazyLogging {
 
     logger.info(s"Starting multipart parse for response with status ${response.status}")
 
+    // Warn about non-successful status codes
+    if (response.status < 200 || response.status >= 300) {
+      logger.warn(
+        s"Parsing multipart response with non-successful status ${response.status}. " +
+          s"The response body may be incomplete, empty, or contain error messages.",
+      )
+    }
+
     // Validate it's multipart
     if (!response.isMultipart) {
       val contentType = response.header("content-type").getOrElse("unknown")
