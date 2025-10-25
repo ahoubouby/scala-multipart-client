@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+#### Stream Handling (Critical Bug Fix)
+- **Fixed `IllegalArgumentException: Cannot pull closed port`** in `GenericBodyPartParser`
+  - Issue occurred when HTTP response stream ended prematurely (e.g., 403 errors, network issues)
+  - Parser now tracks upstream state separately from parser state
+  - Added `upstreamFinished` flag to prevent pulling from closed streams
+  - Parser now completes gracefully and emits `ParseError` for incomplete data
+  - Added comprehensive logging for debugging incomplete multipart responses
+
+#### Error Response Handling
+- Added warning when parsing multipart responses with non-2xx status codes
+- Parser now provides better error messages for incomplete data
+- Improved logging to show parse phase and buffer state when errors occur
+
+### Added
+
+#### Testing
+- Added `IncompleteMultipartSpec` test suite for edge cases:
+  - Empty streams
+  - Truncated headers
+  - Incomplete body data
+  - HTTP 403 error scenarios
+  - Mid-stream failures
+
+#### Documentation
+- Added `docs/TROUBLESHOOTING.md` with solutions for common issues
+- Documented the "Cannot pull closed port" error and its fix
+- Added debugging tips and logging configuration examples
+
+## [Previous Releases]
+
 ### Added
 
 #### Enhanced MultipartPart API
