@@ -41,8 +41,8 @@ scmInfo := Some(
 // ========================================
 
 val playVersion      = "3.0.4"
-val pekkoVersion     = "1.0.2"
-val pekkoHttpVersion = "1.0.1"
+val pekkoVersion     = "1.0.3"   // <- unified
+val pekkoHttpVersion = "1.0.1"   // OK; we’ll override its Pekko deps to 1.0.3
 
 libraryDependencies ++= Seq(
   // Play WS Client (includes Pekko dependencies)
@@ -66,6 +66,17 @@ libraryDependencies ++= Seq(
   "org.apache.pekko" %% "pekko-testkit" % pekkoVersion % Test,
 )
 
+
+dependencyOverrides ++= Seq(
+  "org.apache.pekko" %% "pekko-actor"                 % pekkoVersion,
+  "org.apache.pekko" %% "pekko-stream"                % pekkoVersion,
+  "org.apache.pekko" %% "pekko-actor-typed"           % pekkoVersion,
+  "org.apache.pekko" %% "pekko-slf4j"                 % pekkoVersion,
+  "org.apache.pekko" %% "pekko-serialization-jackson" % pekkoVersion,
+  "org.apache.pekko" %% "pekko-protobuf-v3"           % pekkoVersion,
+  "org.apache.pekko" %% "pekko-testkit"               % pekkoVersion,
+  "org.apache.pekko" %% "pekko-stream-testkit"        % pekkoVersion
+)
 // ========================================
 // Compiler Options
 // ========================================

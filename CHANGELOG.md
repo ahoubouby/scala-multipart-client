@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
   - Issue occurred when HTTP response stream ended prematurely (e.g., 403 errors, network issues)
   - Parser now tracks upstream state separately from parser state
   - Added `upstreamFinished` flag to prevent pulling from closed streams
+  - **Fixed TWO locations** that call `pull(in)`:
+    - `onPull()` method - checks `!upstreamFinished` before pulling
+    - `drive()` method - checks `!upstreamFinished` before pulling
   - Parser now completes gracefully and emits `ParseError` for incomplete data
   - Added comprehensive logging for debugging incomplete multipart responses
 

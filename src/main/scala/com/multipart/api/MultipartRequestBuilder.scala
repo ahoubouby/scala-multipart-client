@@ -246,7 +246,6 @@ class MultipartRequestBuilder private[api] (
     httpClient
       .execute(request)
       .flatMap { response =>
-        println("------response--------", response)
         MultipartParser.parse(response, parserConfig)
       }
   }
