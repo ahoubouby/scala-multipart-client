@@ -1,6 +1,5 @@
 package com.multipart.classifier
 
-import com.multipart.TestFixtures
 import com.multipart.client._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

@@ -222,8 +222,6 @@ object ShippingLabelClient extends App {
     destination: String,
   ): Future[MultipartResult] = {
 
-    println(s"\nRequesting label for parcel: $parcelNumber")
-    println(s"Destination: $destination")
 
     // Create HTTP client with base URL
     val httpClient = new PlayWSHttpClient(wsClient, baseUrl = apiBaseUrl)
@@ -235,6 +233,7 @@ object ShippingLabelClient extends App {
       .withHeader("token", apiToken)
       .withJsonBody(payload)
       .withTimeout(30.seconds)
+      .withHeader("Content-Type", "application/json")
       // .withHeader("Accept", "multipart/mixed")
       .execute()
   }

@@ -19,3 +19,10 @@ libraryDependencies ++= Seq(
   "org.apache.pekko" %% "pekko-actor" % "1.0.2",
   "org.apache.pekko" %% "pekko-stream" % "1.0.2",
 )
+
+// build.sbt (in the project where you run it)
+fork := true
+javaOptions ++= Seq(
+  "--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED",
+  "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED"
+)
