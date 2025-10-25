@@ -188,10 +188,7 @@ object ShippingLabelClient extends App {
   println("=" * 50)
 
   // Example: Request shipping label
-  val result = requestShippingLabel(
-    parcelNumber = "PKG-12345",
-    destination = "New York, NY",
-  )
+  val result = requestShippingLabel
 
   result.onComplete {
     case Success(multipart) =>
@@ -216,10 +213,7 @@ object ShippingLabelClient extends App {
    * @param destination The shipping destination
    * @return Future containing the multipart response
    */
-  def requestShippingLabel(
-    parcelNumber: String,
-    destination: String,
-  ): Future[MultipartResult] = {
+  def requestShippingLabel: Future[MultipartResult] = {
 
     // Build and execute request using fluent API
     Multipart
