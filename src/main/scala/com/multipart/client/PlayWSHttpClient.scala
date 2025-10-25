@@ -1,5 +1,6 @@
 package com.multipart.client
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import play.api.libs.ws.{StandaloneWSClient, StandaloneWSRequest, StandaloneWSResponse}
@@ -14,11 +15,58 @@ final class PlayWSHttpClient(
   wsClient: StandaloneWSClient,
   baseUrl:  String = "",
 )(implicit ec: ExecutionContext)
-    extends HttpClient {
+    extends HttpClient
+    with LazyLogging {
 
   override def execute(request: HttpRequest): Future[HttpResponse] = {
     val wsRequest = buildRequest(request)
-    wsRequest.stream().map(new PlayWSHttpResponse(_))
+
+    // Log the outgoing request
+    logRequest(request, wsRequest)
+
+    wsRequest.stream().map { response =>
+      // Log the incoming response
+      logResponse(response)
+      new PlayWSHttpResponse(response)
+    }
+  }
+
+  private def logRequest(request: HttpRequest, wsRequest: StandaloneWSRequest): Unit = {
+    val url = joinUrl(baseUrl, request.url)
+    logger.info(s"HTTP ${request.method.name} $url")
+    logger.debug(s"Request headers:")
+    request.headers.foreach { case (k, v) =>
+      val displayValue = if (k.toLowerCase.contains("token") || k.toLowerCase.contains("authorization")) {
+        v.toString.take(15) + "..."
+      } else {
+        v.toString
+      }
+      logger.debug(s"  $k: $displayValue")
+    }
+
+    request.body.foreach {
+      case JsonBody(json) =>
+        logger.debug(s"Request body (JSON): ${json.toString.take(200)}${if (json.toString.length > 200) "..." else ""}")
+      case StringBody(str, _) =>
+        logger.debug(s"Request body (String): ${str.take(200)}${if (str.length > 200) "..." else ""}")
+      case BytesBody(bytes, ct) =>
+        logger.debug(s"Request body (Bytes): ${bytes.length} bytes, Content-Type: $ct")
+    }
+  }
+
+  private def logResponse(response: StandaloneWSResponse): Unit = {
+    logger.info(s"HTTP ${response.status} ${response.statusText}")
+    logger.debug("Response headers:")
+    response.headers.foreach { case (k, v) =>
+      logger.debug(s"  $k: ${v.mkString(", ")}")
+    }
+
+    val contentType = response.header("Content-Type").getOrElse("unknown")
+    logger.info(s"Content-Type: $contentType")
+
+    if (response.status >= 400) {
+      logger.warn(s"Non-successful HTTP status: ${response.status} ${response.statusText}")
+    }
   }
 
   private def buildRequest(request: HttpRequest): StandaloneWSRequest = {
