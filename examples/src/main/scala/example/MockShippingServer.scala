@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.StdIn
 
 /** Mock shipping label API server for testing
-  *
+  *r
   * This mock server simulates a shipping label API that returns multipart/related responses
   * containing JSON metadata and PDF label documents.
   *

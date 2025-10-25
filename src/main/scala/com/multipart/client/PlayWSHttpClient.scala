@@ -1,18 +1,18 @@
 package com.multipart.client
 
 import scala.concurrent.{ExecutionContext, Future}
+
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import play.api.libs.ws.{StandaloneWSClient, StandaloneWSRequest, StandaloneWSResponse}
-
 // Implicit body writers for JsValue, String, ByteString, etc.
 import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.ws.JsonBodyWritables._
 
 final class PlayWSHttpClient(
-                              wsClient: StandaloneWSClient,
-                              baseUrl: String = ""
-                            )(implicit ec: ExecutionContext)
+  wsClient: StandaloneWSClient,
+  baseUrl: String = "",
+)(implicit ec: ExecutionContext)
   extends HttpClient {
 
   override def execute(request: HttpRequest): Future[HttpResponse] = {
@@ -52,7 +52,7 @@ final class PlayWSHttpClient(
           case (inner, vv: String) => inner.withHttpHeaders(k -> vv)
           case (inner, other)      => inner.withHttpHeaders(k -> String.valueOf(other))
         }
-      case (acc, (k, v)) =>
+      case (acc, (k, v))         =>
         acc.withHttpHeaders(k -> String.valueOf(v))
     }
 
@@ -74,10 +74,9 @@ final class PlayWSHttpClient(
         if (hasContentType(request.headers)) r
         else r.withHttpHeaders("Content-Type" -> "text/plain; charset=UTF-8")
 
-      case Some(StringBody(str, ct)) =>
+      case Some(StringBody(str, ct))    =>
         req.withBody(str).withHttpHeaders("Content-Type" -> ct)
 
-      // ---- IMPORTANT: handle null content type BEFORE the generic BytesBody case
       case Some(BytesBody(bytes, null)) =>
         val r = req.withBody(ByteString(bytes))
         if (hasContentType(request.headers)) r

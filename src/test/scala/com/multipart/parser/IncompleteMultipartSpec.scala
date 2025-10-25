@@ -74,7 +74,7 @@ class IncompleteMultipartSpec
         // Should complete without throwing IllegalArgumentException
         // May have a ParseError or be empty
         parts.foreach {
-          case Left(err: Part.ParseError) =>
+          case Left(err: ParseError) =>
             err.message should include("Incomplete multipart data")
           case _ => // OK
         }
@@ -106,7 +106,7 @@ class IncompleteMultipartSpec
         // Should not throw IllegalArgumentException
         // Should either complete or emit a ParseError
         parts.foreach {
-          case Left(err: Part.ParseError) =>
+          case Left(err: ParseError) =>
             err.message should include("Incomplete multipart data")
           case _ => // OK
         }
@@ -164,7 +164,7 @@ class IncompleteMultipartSpec
         // The critical test: this should NOT throw IllegalArgumentException
         // It should complete gracefully, even if parts are empty or contain errors
         parts.foreach {
-          case Left(err: Part.ParseError) =>
+          case Left(err: ParseError) =>
             // Acceptable - parser detected incomplete data
             err.message should not be empty
           case Right(_) =>
@@ -198,7 +198,7 @@ class IncompleteMultipartSpec
         // Should parse the complete data from chunk1
         // May or may not emit error for chunk2, but should not crash
         parts should not be empty
-        val dataParts = parts.collect { case Left(p: Part.DataPart[_]) => p }
+        val dataParts = parts.collect { case Left(p: DataPart) => p }
         dataParts.size should be >= 2 // At least the two fields from simpleFormData
       }
     }

@@ -262,5 +262,5 @@ result.parts.filter(_.isCsv).foreach { part =>
 ## Learn More
 
 - See the [main README](../README.md) for library documentation
-- Check [ARCHITECTURE.md](../ARCHITECTURE.md) for design details
+- Check [ARCHITECTURE.md](../docs/ARCHITECTURE.md) for design details
 - Browse the test suite in `src/test/scala/` for more examples

@@ -171,16 +171,15 @@ object ShippingLabelClient extends App {
   implicit val mat:    Materializer     = Materializer(system)
   implicit val ec:     ExecutionContext = system.dispatcher
 
-  // Create Play WS client
-  val wsClient: StandaloneWSClient = StandaloneAhcWSClient()
-
   // ========================================
   // Configuration
   // ========================================
 
   val apiBaseUrl = "https://qualification.colissimo.fr"
-  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "15b49eeeb5482f4e7406ee3a92451591")
-
+  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "7e13ce23fa232b3fff19480e6fb12c00")
+  // Create Play WS client
+  val wsClient: StandaloneAhcWSClient = StandaloneAhcWSClient()
+  val httpClient                      = new PlayWSHttpClient(wsClient, baseUrl = apiBaseUrl)
   // ========================================
   // Main Application Logic
   // ========================================
@@ -222,10 +221,6 @@ object ShippingLabelClient extends App {
     destination: String,
   ): Future[MultipartResult] = {
 
-
-    // Create HTTP client with base URL
-    val httpClient = new PlayWSHttpClient(wsClient, baseUrl = apiBaseUrl)
-
     // Build and execute request using fluent API
     Multipart
       .request(httpClient)
@@ -233,8 +228,6 @@ object ShippingLabelClient extends App {
       .withHeader("token", apiToken)
       .withJsonBody(payload)
       .withTimeout(30.seconds)
-      .withHeader("Content-Type", "application/json")
-      // .withHeader("Accept", "multipart/mixed")
       .execute()
   }
 
