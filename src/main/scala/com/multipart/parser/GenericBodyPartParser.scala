@@ -162,8 +162,23 @@ private object Parser {
     // -- Parse headers until CRLF CRLF
     case Headers(start, mem)          =>
       logger.debug(s"Headers phase: start=$start, mem=$mem, inputLen=${s.input.length}, looking for CRLF CRLF")
+
+      // Debug: Manual search for \r\n\r\n
+      val manualSearch = {
+        var found = -1
+        var i = start
+        while (i < s.input.length - 3 && found == -1) {
+          if (s.input(i) == '\r' && s.input(i+1) == '\n' && s.input(i+2) == '\r' && s.input(i+3) == '\n') {
+            found = i
+          }
+          i += 1
+        }
+        found
+      }
+      logger.debug(s"Headers phase: manual search for \\r\\n\\r\\n from $start: result=$manualSearch")
+
       val idx = s.input.indexOfSlice(s.crlfcrlf, start)
-      logger.debug(s"Headers phase: delimiter search result: idx=$idx")
+      logger.debug(s"Headers phase: indexOfSlice search result: idx=$idx, crlfcrlf=${s.crlfcrlf.utf8String.replace("\r", "\\r").replace("\n", "\\n")}")
       if (idx == -1) {
         // Debug: log when we can't find the header delimiter
         val available = s.input.length - start
