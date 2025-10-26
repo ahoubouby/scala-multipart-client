@@ -190,12 +190,18 @@ object ShippingLabelClient extends App {
   println(s"API Token: ${apiToken.take(10)}...")
   println("=" * 50)
 
-  // Example: Request shipping label (RAW DEBUG MODE - no parsing)
-  val result = requestShippingLabelRaw
+  // Example: Request shipping label
+  val result = requestShippingLabel
 
   result.onComplete {
-    case Success(_) =>
-      println("\n✓ Raw response printed above")
+    case Success(multipart) =>
+      println("\n✓ Successfully received multipart response")
+      processMultipartResponse(multipart)
+      shutdown()
+
+    case Failure(exception: NonMultipartResponseException) =>
+      println(s"\n✗ API returned error response instead of multipart")
+      handleJsonError(exception)
       shutdown()
 
     case Failure(exception) =>
@@ -352,16 +358,20 @@ object ShippingLabelClient extends App {
     println(s"   Payload size: ${Json.stringify(payload).length} bytes")
     println()
 
+    // Custom parser config to handle large PDF labels (up to 1MB)
+    val parserConfig = com.multipart.parser.MultipartParserConfig(
+      boundary = "",  // Auto-detected from Content-Type header
+      maxMemoryBufferSize = 1024 * 1024,  // 1MB (PDF labels are ~80-100KB)
+      maxHeaderSize = 4096,  // 4KB (default)
+    )
+
     // Build and execute request using fluent API
     Multipart
       .request(httpClient)
       .post("/sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
       .withHeader("token", apiToken)
-      // """multipart/related; type="application/json""""
-      // .withHeader("Accept", """multipart/related; type="application/json"""")
-      // .withJsonBody(Json.obj())
       .withJsonBody(payload)
-
+      .withParserConfig(parserConfig)  // ← Add custom config here
       .withTimeout(30.seconds)
       .execute()
       .andThen {
