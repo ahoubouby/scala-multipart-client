@@ -3,6 +3,8 @@ package com.ahoubouby.multipart.examples
 import com.multipart.api.Multipart
 import com.multipart.client.PlayWSHttpClient
 import com.multipart.model.MultipartResult
+import play.api.libs.ws.DefaultBodyWritables._  // <-- provides BodyWritable[String]
+import play.api.libs.json._
 import com.multipart.parser.NonMultipartResponseException
 
 import org.apache.pekko.actor.ActorSystem

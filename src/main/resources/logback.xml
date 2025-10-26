@@ -1,0 +1,24 @@
+<configuration>
+
+    <!-- Root logger: only INFO and above -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- Console output formatting -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>[%date{HH:mm:ss.SSS}] [%level] [%logger{36}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Silence noisy Netty / AHC / Pekko internals -->
+    <logger name="play.shaded.ahc" level="WARN" />
+    <logger name="org.asynchttpclient" level="WARN" />
+    <logger name="io.netty" level="WARN" />
+    <logger name="org.apache.pekko" level="INFO" />
+
+    <!-- DEBUG multipart parser to see state machine flow -->
+    <logger name="com.multipart.parser.GenericBodyPartParser" level="DEBUG" />
+
+</configuration>

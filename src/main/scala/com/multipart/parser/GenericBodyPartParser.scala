@@ -18,7 +18,7 @@ import org.apache.pekko.util.ByteString
 // Functional core: pure parser state machine
 // ===================================================================================
 
-private object Parser {
+private object Parser extends LazyLogging {
 
   // ---- Domain emitted to the shell (what to do next)
   sealed trait Out
@@ -106,7 +106,7 @@ private object Parser {
     // -- First boundary at start-of-entity (no CRLF before)
     case InitialBoundary              =>
       logger.debug(s"InitialBoundary phase: inputLen=${s.input.length}, boundaryLen=${s.boundaryLen}")
-      try
+      try {
         val matches = matchesBoundary(s.input, 0, s.boundary)
         logger.debug(s"InitialBoundary: matchesBoundary result=$matches")
         if (matches) {
@@ -127,6 +127,7 @@ private object Parser {
           logger.debug(s"InitialBoundary: No match, going to Preamble(0)")
           Step(s.copy(phase = Preamble(0)), Nil)
         }
+      }
       catch {
         case NotEnoughDataException =>
           logger.debug(s"InitialBoundary: Not enough data, waiting")
