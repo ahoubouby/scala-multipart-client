@@ -434,7 +434,7 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
       // Drive the functional parser until it needs more bytes or terminates
       private def drive(): Unit = {
         implicit val implicitLogger: org.slf4j.Logger = logger.underlying
-        @tailrec def loop(): Unit = {
+        @tailrec def loop(prevPhase: Phase): Unit = {
           val Step(next, outs) = Parser.step(state)
           state = next
           if (outs.nonEmpty) {
@@ -447,17 +447,20 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
             }
           }
 
-          // Decide whether to continue stepping:
-          val canContinue =
-            outs.exists {
-              case EmitBytes(_) | EmitPart(_) => true
-              case _                          => false
-            }
+          // Continue looping if:
+          // 1. We emitted something (bytes or parts), OR
+          // 2. The phase changed (state transition without emission)
+          // This ensures phase transitions like Preamble->Headers are processed
+          val phaseChanged = next.phase != prevPhase
+          val emittedData = outs.exists {
+            case EmitBytes(_) | EmitPart(_) => true
+            case _                          => false
+          }
 
-          if (canContinue && !finished) loop()
+          if ((phaseChanged || emittedData) && !finished) loop(next.phase)
         }
 
-        loop()
+        loop(state.phase)
 
         // Emit if someone is pulling
         if (isAvailable(out) && queue.nonEmpty) {
