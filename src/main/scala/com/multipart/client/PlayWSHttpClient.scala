@@ -83,7 +83,10 @@ final class PlayWSHttpClient(
         req
 
       case Some(JsonBody(json)) =>
-        val r = req.withBody(json)
+        // Stringify JSON to avoid any implicit writer issues
+        // This ensures consistent behavior with raw .post(String) calls
+        val jsonString = play.api.libs.json.Json.stringify(json)
+        val r = req.withBody(jsonString)
         if (hasContentType(request.headers)) r
         else r.withHttpHeaders("Content-Type" -> "application/json")
 
