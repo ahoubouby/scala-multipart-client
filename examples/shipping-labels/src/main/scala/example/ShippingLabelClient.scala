@@ -9,6 +9,7 @@ import scala.util.{Failure, Success}
 import com.multipart.api.Multipart
 import com.multipart.client.PlayWSHttpClient
 import com.multipart.model.MultipartResult
+import com.multipart.parser.NonMultipartResponseException
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -196,6 +197,11 @@ object ShippingLabelClient extends App {
       processMultipartResponse(multipart)
       shutdown()
 
+    case Failure(exception: NonMultipartResponseException) =>
+      println(s"\n✗ API returned error response instead of multipart")
+      handleJsonError(exception)
+      shutdown()
+
     case Failure(exception) =>
       println(s"\n✗ Failed to get shipping label: ${exception.getMessage}")
       exception.printStackTrace()
@@ -281,6 +287,42 @@ object ShippingLabelClient extends App {
   def savePdfLabel(data: Array[Byte], filename: String): Unit = {
     val path = Paths.get(filename)
     Files.write(path, data)
+  }
+
+  /**
+   * Handle JSON error response
+   *
+   * @param exception The NonMultipartResponseException containing error details
+   */
+  def handleJsonError(exception: NonMultipartResponseException): Unit = {
+    println("\n" + "=" * 50)
+    println("ERROR RESPONSE DETAILS")
+    println("=" * 50)
+    println(s"HTTP Status: ${exception.status}")
+    println(s"Content-Type: ${exception.contentType}")
+
+    if (exception.isJsonError) {
+      println("\nJSON Error Body:")
+      println("-" * 50)
+      exception.jsonBody.foreach { json =>
+        println(Json.prettyPrint(json))
+      }
+
+      exception.errorMessage.foreach { msg =>
+        println(s"\nError Message: $msg")
+      }
+
+      val details = exception.errorDetails
+      if (details.nonEmpty) {
+        println("\nError Details:")
+        details.foreach {
+          case (key, value) => println(s"  $key: $value")
+        }
+      }
+    } else {
+      println("\nNon-JSON error response received")
+    }
+    println("=" * 50)
   }
 
   /**

@@ -1,6 +1,7 @@
 package com.multipart.parser
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 import com.multipart.client._
 import com.multipart.model._
@@ -10,6 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.pekko.stream._
 import org.apache.pekko.stream.scaladsl._
 import org.apache.pekko.util.ByteString
+import play.api.libs.json.{Json, JsValue}
 
 /**
  * High-level multipart parser with Pekko Streams
@@ -43,14 +45,36 @@ object MultipartParser extends LazyLogging {
       )
     }
 
-    // Validate it's multipart
+    // Validate it's multipart, handle JSON error responses
     if (!response.isMultipart) {
       val contentType = response.header("content-type").getOrElse("unknown")
       logger.error(s"Not a multipart response. Content-Type: $contentType")
+
+      // If it's a JSON response, try to parse and include in exception
+      if (contentType.toLowerCase.contains("application/json")) {
+        return response.bodyAsSource
+          .runFold(ByteString.empty)(_ ++ _)
+          .flatMap { bytes =>
+            val jsonBody = Try(Json.parse(bytes.toArray)).toOption
+            jsonBody.foreach { json =>
+              logger.error(s"JSON error response: ${Json.prettyPrint(json)}")
+            }
+            Future.failed(
+              NonMultipartResponseException(
+                contentType = contentType,
+                status = response.status,
+                jsonBody = jsonBody
+              )
+            )
+          }
+      }
+
       return Future.failed(
-        new Exception(
-          s"Not a multipart response. Content-Type: $contentType",
-        ),
+        NonMultipartResponseException(
+          contentType = contentType,
+          status = response.status,
+          jsonBody = None
+        )
       )
     }
 
