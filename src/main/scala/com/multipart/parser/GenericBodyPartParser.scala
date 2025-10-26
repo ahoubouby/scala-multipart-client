@@ -135,9 +135,20 @@ private object Parser {
     case Headers(start, mem)          =>
       val idx = s.input.indexOfSlice(s.crlfcrlf, start)
       if (idx == -1) {
+        // Debug: log when we can't find the header delimiter
+        val available = s.input.length - start
+        val preview = if (available > 0) {
+          val previewLen = Math.min(available, 100)
+          s.input.slice(start, start + previewLen).utf8String.replace("\r", "\\r").replace("\n", "\\n")
+        } else ""
+
         if (s.input.length - start >= s.maxHeader)
           Step(s, BufferExceeded(s"Header length exceeded ${s.maxHeader}") :: Terminate :: Nil)
-        else Step(s, Nil) // need more bytes
+        else {
+          // Only log at trace level to avoid spam, but helps debugging
+          // logger.trace(s"Headers phase: waiting for \\r\\n\\r\\n delimiter. Start=$start, available=$available bytes, preview: $preview")
+          Step(s, Nil) // need more bytes
+        }
       } else if (idx - start >= s.maxHeader) {
         Step(s, BufferExceeded(s"Header length exceeded ${s.maxHeader}") :: Terminate :: Nil)
       } else {
@@ -351,8 +362,16 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
         if (queue.isEmpty) {
           if (!finished && state.input.nonEmpty) {
             // We have buffered data but parser isn't finished - likely incomplete multipart
+            val preview = if (state.input.length <= 200) {
+              state.input.utf8String
+            } else {
+              state.input.take(200).utf8String + "..."
+            }
             logger.warn(
               s"Upstream finished with incomplete multipart data (${state.input.length} bytes buffered, phase: ${state.phase})",
+            )
+            logger.debug(
+              s"Buffered data preview: ${preview.replace("\r", "\\r").replace("\n", "\\n")}",
             )
             queue = queue.enqueue(
               Left(
