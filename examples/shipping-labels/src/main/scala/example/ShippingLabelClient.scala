@@ -304,23 +304,42 @@ object ShippingLabelClient extends App {
     if (exception.isJsonError) {
       println("\nJSON Error Body:")
       println("-" * 50)
+
+      // Access raw JsValue for full flexibility
       exception.jsonBody.foreach { json =>
         println(Json.prettyPrint(json))
       }
 
+      // Use built-in helper for common error messages
       exception.errorMessage.foreach { msg =>
         println(s"\nError Message: $msg")
       }
 
-      val details = exception.errorDetails
-      if (details.nonEmpty) {
-        println("\nError Details:")
-        details.foreach {
+      // Example: Extract specific fields using getJsonField
+      exception.getJsonField("timestamp").foreach { ts =>
+        println(s"Timestamp: $ts")
+      }
+
+      // Example: Convert entire JSON to flat map for logging
+      val allFields = exception.toMap
+      if (allFields.nonEmpty) {
+        println("\nAll Fields:")
+        allFields.foreach {
           case (key, value) => println(s"  $key: $value")
         }
       }
+
+      // Example: Custom field extraction for your specific API
+      exception.jsonBody.foreach { json =>
+        // For Colissimo-specific fields (customize for your API)
+        (json \ "path").asOpt[String].foreach(path => println(s"Request Path: $path"))
+        (json \ "status").asOpt[Int].foreach(status => println(s"Error Status: $status"))
+      }
     } else {
       println("\nNon-JSON error response received")
+      exception.bodyAsString.foreach { body =>
+        println(s"Raw body: ${body.take(500)}${if (body.length > 500) "..." else ""}")
+      }
     }
     println("=" * 50)
   }

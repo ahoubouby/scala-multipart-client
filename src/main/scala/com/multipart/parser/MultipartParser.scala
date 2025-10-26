@@ -50,32 +50,31 @@ object MultipartParser extends LazyLogging {
       val contentType = response.header("content-type").getOrElse("unknown")
       logger.error(s"Not a multipart response. Content-Type: $contentType")
 
-      // If it's a JSON response, try to parse and include in exception
-      if (contentType.toLowerCase.contains("application/json")) {
-        return response.bodyAsSource
-          .runFold(ByteString.empty)(_ ++ _)
-          .flatMap { bytes =>
-            val jsonBody = Try(Json.parse(bytes.toArray)).toOption
-            jsonBody.foreach { json =>
-              logger.error(s"JSON error response: ${Json.prettyPrint(json)}")
-            }
-            Future.failed(
-              NonMultipartResponseException(
-                contentType = contentType,
-                status = response.status,
-                jsonBody = jsonBody
-              )
-            )
-          }
-      }
+      // Read the response body for better error reporting
+      return response.bodyAsSource
+        .runFold(ByteString.empty)(_ ++ _)
+        .flatMap { bytes =>
+          val rawBytes = bytes.toArray
 
-      return Future.failed(
-        NonMultipartResponseException(
-          contentType = contentType,
-          status = response.status,
-          jsonBody = None
-        )
-      )
+          // If it's a JSON response, try to parse it
+          val jsonBody = if (contentType.toLowerCase.contains("application/json")) {
+            Try(Json.parse(rawBytes)).toOption.map { json =>
+              logger.error(s"JSON error response: ${Json.prettyPrint(json)}")
+              json
+            }
+          } else {
+            None
+          }
+
+          Future.failed(
+            NonMultipartResponseException(
+              contentType = contentType,
+              status = response.status,
+              jsonBody = jsonBody,
+              rawBody = Some(rawBytes)
+            )
+          )
+        }
     }
 
     // Detect format and extract configuration

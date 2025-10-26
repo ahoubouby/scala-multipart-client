@@ -72,7 +72,7 @@ class JsonErrorResponseSpec
         }
       }
 
-      "extract error message from JSON body" in {
+      "extract error message from JSON body using common field names" in {
         val jsonError = """{
           "status": 403,
           "error": "Forbidden",
@@ -90,8 +90,8 @@ class JsonErrorResponseSpec
         whenReady(result.failed) { exception =>
           val ex = exception.asInstanceOf[NonMultipartResponseException]
           ex.errorMessage shouldBe Some("Forbidden")
-          ex.errorDetails should contain("error" -> "Forbidden")
-          ex.errorDetails should contain("message" -> "Invalid API token")
+          ex.getJsonField("error").flatMap(_.asOpt[String]) shouldBe Some("Forbidden")
+          ex.getJsonField("message").flatMap(_.asOpt[String]) shouldBe Some("Invalid API token")
         }
       }
 
@@ -134,7 +134,7 @@ class JsonErrorResponseSpec
         }
       }
 
-      "include all error details in errorDetails map" in {
+      "convert JSON to flat map using toMap" in {
         val jsonError = """{
           "timestamp": 1761436501465,
           "status": 500,
@@ -153,13 +153,83 @@ class JsonErrorResponseSpec
 
         whenReady(result.failed) { exception =>
           val ex = exception.asInstanceOf[NonMultipartResponseException]
-          val details = ex.errorDetails
+          val map = ex.toMap
 
-          details should contain("status" -> "500")
-          details should contain("error" -> "Internal Server Error")
-          details should contain("message" -> "Database connection failed")
-          details should contain("path" -> "/api/endpoint")
-          details should contain("timestamp" -> "1761436501465")
+          map should contain("status" -> "500")
+          map should contain("error" -> "Internal Server Error")
+          map should contain("message" -> "Database connection failed")
+          map should contain("path" -> "/api/endpoint")
+          map should contain("timestamp" -> "1761436501465")
+        }
+      }
+
+      "extract nested JSON fields using getJsonField" in {
+        val jsonError = """{
+          "error": {
+            "code": "AUTH_FAILED",
+            "message": "Invalid credentials",
+            "details": {
+              "reason": "Token expired"
+            }
+          }
+        }"""
+
+        val response = new HttpResponse {
+          def status: Int                         = 401
+          def headers: Map[String, Seq[String]]   = Map("content-type" -> Seq("application/json"))
+          def bodyAsSource: Source[ByteString, _] = Source.single(ByteString(jsonError))
+        }
+
+        val result = MultipartParser.parse(response)
+
+        whenReady(result.failed) { exception =>
+          val ex = exception.asInstanceOf[NonMultipartResponseException]
+
+          ex.getJsonField("error.code").flatMap(_.asOpt[String]) shouldBe Some("AUTH_FAILED")
+          ex.getJsonField("error.message").flatMap(_.asOpt[String]) shouldBe Some("Invalid credentials")
+          ex.getJsonField("error.details.reason").flatMap(_.asOpt[String]) shouldBe Some("Token expired")
+        }
+      }
+
+      "handle any JSON structure generically" in {
+        // Custom API error format (not the standard structure)
+        val jsonError = """{
+          "errorCode": "ERR_500",
+          "description": "Service unavailable",
+          "traceId": "abc-123-xyz",
+          "data": {
+            "serviceName": "shipping-api",
+            "region": "eu-west-1"
+          }
+        }"""
+
+        val response = new HttpResponse {
+          def status: Int                         = 500
+          def headers: Map[String, Seq[String]]   = Map("content-type" -> Seq("application/json"))
+          def bodyAsSource: Source[ByteString, _] = Source.single(ByteString(jsonError))
+        }
+
+        val result = MultipartParser.parse(response)
+
+        whenReady(result.failed) { exception =>
+          val ex = exception.asInstanceOf[NonMultipartResponseException]
+
+          // Access via raw JsValue
+          ex.jsonBody.foreach { json =>
+            (json \ "errorCode").as[String] shouldBe "ERR_500"
+            (json \ "description").as[String] shouldBe "Service unavailable"
+            (json \ "data" \ "serviceName").as[String] shouldBe "shipping-api"
+          }
+
+          // Access via getJsonField
+          ex.getJsonField("errorCode").flatMap(_.asOpt[String]) shouldBe Some("ERR_500")
+          ex.getJsonField("data.serviceName").flatMap(_.asOpt[String]) shouldBe Some("shipping-api")
+
+          // Access via toMap (flattens nested structure)
+          val map = ex.toMap
+          map should contain("errorCode" -> "ERR_500")
+          map should contain("data.serviceName" -> "shipping-api")
+          map should contain("data.region" -> "eu-west-1")
         }
       }
 
@@ -185,7 +255,7 @@ class JsonErrorResponseSpec
 
     "receiving non-JSON, non-multipart response" should {
 
-      "fail with NonMultipartResponseException without JSON body" in {
+      "fail with NonMultipartResponseException and provide raw body" in {
         val htmlError = "<html><body>Error</body></html>"
 
         val response = new HttpResponse {
@@ -204,6 +274,8 @@ class JsonErrorResponseSpec
           ex.contentType shouldBe "text/html"
           ex.isJsonError shouldBe false
           ex.jsonBody shouldBe None
+          ex.rawBody shouldBe defined
+          ex.bodyAsString shouldBe Some(htmlError)
         }
       }
 
@@ -222,6 +294,7 @@ class JsonErrorResponseSpec
           val ex = exception.asInstanceOf[NonMultipartResponseException]
           ex.contentType shouldBe "text/plain"
           ex.jsonBody shouldBe None
+          ex.bodyAsString shouldBe Some(textError)
         }
       }
     }
