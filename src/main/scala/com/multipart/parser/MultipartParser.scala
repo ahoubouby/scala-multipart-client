@@ -11,7 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.pekko.stream._
 import org.apache.pekko.stream.scaladsl._
 import org.apache.pekko.util.ByteString
-import play.api.libs.json.{Json, JsValue}
+import play.api.libs.json.Json
 
 /**
  * High-level multipart parser with Pekko Streams

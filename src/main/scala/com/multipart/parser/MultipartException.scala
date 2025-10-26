@@ -69,7 +69,7 @@ case class NonMultipartResponseException(
    * Only converts simple types (String, Number, Boolean)
    */
   def toMap: Map[String, String] =
-    jsonBody.map(jsonToMap).getOrElse(Map.empty)
+    jsonBody.map(js => jsonToMap(js)).getOrElse(Map.empty[String, String])
 
   private def jsonToMap(json: JsValue, prefix: String = ""): Map[String, String] =
     json match {
