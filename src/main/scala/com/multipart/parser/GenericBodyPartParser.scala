@@ -101,7 +101,7 @@ private object Parser {
   // ---- One pure step of the state machine
   final case class Step(next: State, outs: List[Out])
 
-  def step(s: State): Step = s.phase match {
+  def step(s: State)(implicit logger: org.slf4j.Logger): Step = s.phase match {
 
     // -- First boundary at start-of-entity (no CRLF before)
     case InitialBoundary              =>
@@ -433,6 +433,7 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
 
       // Drive the functional parser until it needs more bytes or terminates
       private def drive(): Unit = {
+        implicit val implicitLogger: org.slf4j.Logger = logger.underlying
         @tailrec def loop(): Unit = {
           val Step(next, outs) = Parser.step(state)
           state = next
