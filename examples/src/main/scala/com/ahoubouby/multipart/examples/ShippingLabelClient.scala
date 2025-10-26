@@ -1,12 +1,11 @@
 package com.ahoubouby.multipart.examples
 
 import com.multipart.api.Multipart
-import com.multipart.client.PlayWSHttpClient
+import com.multipart.client.{PlayWSHttpClient, PlayWSHttpResponse}
 import com.multipart.model.MultipartResult
-import play.api.libs.ws.DefaultBodyWritables._  // <-- provides BodyWritable[String]
+import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.json._
-import com.multipart.parser.NonMultipartResponseException
-
+import com.multipart.parser.{MultipartParser, NonMultipartResponseException}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import play.api.libs.ws.ahc.StandaloneAhcWSClient
@@ -224,7 +223,7 @@ object ShippingLabelClient extends App {
    *
    * @return Future indicating success/failure
    */
-  def requestShippingLabelRaw: Future[Unit] = {
+  def requestShippingLabelRaw = {
     import org.apache.pekko.stream.scaladsl.Sink
 
     println("\n📤 Sending request to Colissimo API (RAW DEBUG MODE)...")
