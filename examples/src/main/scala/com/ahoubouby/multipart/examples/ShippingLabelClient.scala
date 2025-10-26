@@ -174,7 +174,7 @@ object ShippingLabelClient extends App {
   // ========================================
 
   val apiBaseUrl = "https://qualification.colissimo.fr"
-  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "38a0aeb5160ba23cd377c844197eb207")
+  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "b912a29c4177f2a4366d0298a5fa407f")
 
   // Create Play WS client
   val wsClient: StandaloneAhcWSClient = StandaloneAhcWSClient()
@@ -234,8 +234,8 @@ object ShippingLabelClient extends App {
       .post("/sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
       .withHeader("token", apiToken)
       // """multipart/related; type="application/json""""
-      .withHeader("Accept", """multipart/related; type="application/json"""")
-      .withHeader("User-Agent", "curl/8.5.0")
+      // .withHeader("Accept", """multipart/related; type="application/json"""")
+      // .withJsonBody(Json.obj())
       .withJsonBody(payload)
 
       .withTimeout(30.seconds)

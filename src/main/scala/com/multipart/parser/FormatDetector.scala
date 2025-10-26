@@ -83,7 +83,7 @@ object FormatDetector extends LazyLogging {
     val start = StartPattern.findFirstMatchIn(contentType).map(_.group(1))
 
     start.foreach(
-      s => logger.debug(s"Start parameter found: $s"),
+      s => logger.info(s"Start parameter found: $s"),
     )
 
     start

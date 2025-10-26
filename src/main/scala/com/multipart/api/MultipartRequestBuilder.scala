@@ -234,7 +234,6 @@ class MultipartRequestBuilder private[api] (
     */
   def execute()(implicit mat: Materializer, ec: ExecutionContext): Future[MultipartResult] = {
     // Build the HTTP request
-    println("WS headers: " + headers.map{ case (k,v) => s"$k: ${v}" }.mkString("; "))
     val request = HttpRequest(
       url     = url,
       method  = method,
@@ -247,7 +246,6 @@ class MultipartRequestBuilder private[api] (
     httpClient
       .execute(request)
       .flatMap { response =>
-        println("------------ httpClient", response.headers)
         MultipartParser.parse(response, parserConfig)
       }
   }
