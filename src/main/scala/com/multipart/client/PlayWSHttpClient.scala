@@ -1,7 +1,6 @@
 package com.multipart.client
 
 import scala.concurrent.{ExecutionContext, Future}
-
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import play.api.libs.ws.{StandaloneWSClient, StandaloneWSRequest, StandaloneWSResponse}
@@ -23,8 +22,11 @@ final class PlayWSHttpClient(
   private def buildRequest(request: HttpRequest): StandaloneWSRequest = {
     val url  = joinUrl(baseUrl, request.url)
     val base = wsClient.url(url)
+      .withFollowRedirects(true)
+    // follow redirects like curl unless caller overrode it
+    val base2 = base.withFollowRedirects(true)
 
-    val withHeaders: StandaloneWSRequest = applyHeaders(base, request.headers)
+    val withHeaders: StandaloneWSRequest = addDefaultsIfMissing(applyHeaders(base2, request.headers))
 
     val withTimeout = request.timeout match {
       case Some(t) => withHeaders.withRequestTimeout(t)
@@ -34,6 +36,22 @@ final class PlayWSHttpClient(
     val withMethod = withTimeout.withMethod(request.method.name)
 
     setBody(withMethod, request)
+  }
+
+  private def addDefaultsIfMissing(req: StandaloneWSRequest): StandaloneWSRequest = {
+    def has(h: String) = req.headers.keys.exists(_.equalsIgnoreCase(h))
+
+    var r = req
+    if (!has("User-Agent"))
+      r = r.withHttpHeaders("User-Agent" -> "curl/8.7.1")
+    if (!has("Accept"))
+      r = r.withHttpHeaders("Accept" -> "*/*")
+    if (!has("Accept-Language"))
+      r = r.withHttpHeaders("Accept-Language" -> "en-US,en;q=0.9")
+    // Accept-Encoding is handled by AHC, but setting it can help parity:
+    if (!has("Accept-Encoding"))
+      r = r.withHttpHeaders("Accept-Encoding" -> "gzip, deflate, br")
+    r
   }
 
   private def joinUrl(base: String, path: String): String =

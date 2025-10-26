@@ -1,32 +1,27 @@
-package example
-
-import java.nio.file.{Files, Paths}
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+package com.ahoubouby.multipart.examples
 
 import com.multipart.api.Multipart
 import com.multipart.client.PlayWSHttpClient
 import com.multipart.model.MultipartResult
-
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
-import play.api.libs.json.Json
-import play.api.libs.ws.StandaloneWSClient
 import play.api.libs.ws.ahc.StandaloneAhcWSClient
 
+import java.nio.file.{Files, Paths}
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
+
 /**
- * Example: Shipping Label Client
+ * Example: Shipping Label Client for Colissimo API
  *
  * This example demonstrates how to use the Scala Multipart Client library
- * to request and parse multipart responses from a shipping API.
+ * to request and parse multipart responses from the Colissimo shipping API.
  *
  * Use case: Request a shipping label from an API that returns:
- *   - JSON metadata (tracking number, shipping info)
- *   - PDF label document
+ *   - JSON metadata (tracking number, shipping info, or error messages)
+ *   - PDF label document (if successful)
  */
-
 object ShippingLabelClient extends App {
   import play.api.libs.json._
 
@@ -93,7 +88,7 @@ object ShippingLabelClient extends App {
       },
       "service": {
         "productCode": "DOM",
-        "depositDate": "2025-10-24",
+        "depositDate": "2025-10-27",
         "totalAmount": 1129,
         "commercialName": "WSU RECETTE",
         "orderNumber": null
@@ -163,6 +158,7 @@ object ShippingLabelClient extends App {
   }
   """,
   )
+
   // ========================================
   // Setup Pekko ActorSystem and HTTP Client
   // ========================================
@@ -176,15 +172,20 @@ object ShippingLabelClient extends App {
   // ========================================
 
   val apiBaseUrl = "https://qualification.colissimo.fr"
-  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "7e13ce23fa232b3fff19480e6fb12c00")
+  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "38a0aeb5160ba23cd377c844197eb207")
+
   // Create Play WS client
   val wsClient: StandaloneAhcWSClient = StandaloneAhcWSClient()
-  val httpClient                      = new PlayWSHttpClient(wsClient, baseUrl = apiBaseUrl)
+  val httpClient = new PlayWSHttpClient(wsClient, baseUrl = apiBaseUrl)
+
   // ========================================
   // Main Application Logic
   // ========================================
 
-  println("Shipping Label Client Example")
+  println("Colissimo Shipping Label Client")
+  println("=" * 50)
+  println(s"API Base URL: $apiBaseUrl")
+  println(s"API Token: ${apiToken.take(10)}...")
   println("=" * 50)
 
   // Example: Request shipping label
@@ -207,22 +208,41 @@ object ShippingLabelClient extends App {
   // ========================================
 
   /**
-   * Request a shipping label from the API
+   * Request a shipping label from the Colissimo API
    *
-   * @param parcelNumber The parcel tracking number
-   * @param destination The shipping destination
    * @return Future containing the multipart response
    */
   def requestShippingLabel: Future[MultipartResult] = {
+    println("\n📤 Sending request to Colissimo API...")
+    println(s"   Endpoint: POST /sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
+    println(s"   Headers:")
+    println(s"     - Content-Type: application/json")
+    println(s"     - token: ${apiToken.take(10)}...")
+    println(s"   Payload size: ${Json.stringify(payload).length} bytes")
+    println()
 
     // Build and execute request using fluent API
     Multipart
       .request(httpClient)
       .post("/sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
       .withHeader("token", apiToken)
+      // """multipart/related; type="application/json""""
+      .withHeader("Accept", """multipart/related; type="application/json"""")
+      .withHeader("User-Agent", "curl/8.5.0")
       .withJsonBody(payload)
+
       .withTimeout(30.seconds)
       .execute()
+      .andThen {
+        case Success(value) =>
+          println(s"\n📥 Response received successfully")
+          println(s"   Multipart format: ${value.metadata.format.name}")
+          println(s"   Boundary: ${value.metadata.boundary}")
+          println(s"   Number of parts: ${value.parts.size}")
+
+        case Failure(ex) =>
+          println(s"\n❌ Request failed: ${ex.getMessage}")
+      }
   }
 
   /**
@@ -231,45 +251,106 @@ object ShippingLabelClient extends App {
    * @param result The parsed multipart result
    */
   def processMultipartResponse(result: MultipartResult): Unit = {
-    println(s"\nReceived ${result.parts.size} parts")
+    println("\n" + "=" * 50)
+    println("MULTIPART RESPONSE ANALYSIS")
+    println("=" * 50)
     println(s"Format: ${result.metadata.format.name}")
+    println(s"Boundary: ${result.metadata.boundary}")
+    println(s"Total parts: ${result.parts.size}")
     println("-" * 50)
+
+    // Process each part
+    result.parts.zipWithIndex.foreach {
+      case (part, idx) =>
+        println(s"\n📦 Part ${idx + 1}/${result.parts.size}")
+        println(s"   Identifier: ${part.identifier}")
+        println(s"   Content-Type: ${part.contentType.getOrElse("unknown")}")
+        println(s"   Size: ${part.sizeFormatted}")
+        println(s"   Type flags: JSON=${part.isJson}, PDF=${part.isPdf}, Image=${part.isImage}")
+
+        if (part.filename.isDefined) {
+          println(s"   Filename: ${part.filename.get}")
+        }
+        if (part.contentId.isDefined) {
+          println(s"   Content-ID: ${part.contentId.get}")
+        }
+    }
+
+    println("\n" + "-" * 50)
 
     // Process JSON metadata
     result.jsonParts.foreach {
       part =>
         println(s"\n📋 JSON Metadata (${part.identifier})")
+        println("-" * 50)
         val json = Json.parse(part.data)
         println(Json.prettyPrint(json))
 
-        // Extract tracking number
+        // Check for error messages
+        (json \ "messages").asOpt[JsArray].foreach {
+          messages =>
+            println("\n⚠️  API Messages:")
+            messages.value.foreach {
+              msg =>
+                val msgType    = (msg \ "type").asOpt[String].getOrElse("UNKNOWN")
+                val msgContent = (msg \ "messageContent").asOpt[String].getOrElse("")
+                val msgId      = (msg \ "id").asOpt[String].getOrElse("")
+                println(s"   [$msgType] (ID: $msgId) $msgContent")
+            }
+        }
+
+        // Extract tracking number (if present)
+        (json \ "parcelNumber").asOpt[String].foreach {
+          parcelNum =>
+            if (parcelNum != null && parcelNum.nonEmpty) {
+              println(s"\n✓ Parcel Number: $parcelNum")
+            }
+        }
+
         (json \ "trackingNumber").asOpt[String].foreach {
           tracking =>
-            println(s"\n✓ Tracking Number: $tracking")
+            if (tracking != null && tracking.nonEmpty) {
+              println(s"✓ Tracking Number: $tracking")
+            }
         }
     }
 
     // Process PDF labels
-    result.pdfParts.foreach {
-      part =>
-        val filename = s"label-${part.identifier}.pdf"
-        savePdfLabel(part.data, filename)
-        println(s"\n📄 PDF Label saved: $filename (${part.size} bytes)")
+    if (result.pdfParts.nonEmpty) {
+      println("\n" + "-" * 50)
+      result.pdfParts.foreach {
+        part =>
+          val filename = s"label-${System.currentTimeMillis()}.pdf"
+          savePdfLabel(part.data, filename)
+          println(s"\n📄 PDF Label saved: $filename")
+          println(s"   Size: ${part.sizeFormatted}")
+          println(s"   Valid PDF: ${part.isValidPdf}")
+      }
+    } else {
+      println("\n⚠️  No PDF labels in response")
     }
 
-    // Process images (e.g., QR codes)
-    result.imageParts.foreach {
-      part =>
-        println(s"\n🖼  Image part: ${part.identifier} (${part.contentType.getOrElse("unknown")})")
+    // Process images (e.g., QR codes, barcodes)
+    if (result.imageParts.nonEmpty) {
+      println("\n" + "-" * 50)
+      result.imageParts.foreach {
+        part =>
+          println(s"\n🖼  Image part: ${part.identifier}")
+          println(s"   Type: ${part.contentType.getOrElse("unknown")}")
+          println(s"   Format: ${part.imageFormat.getOrElse("unknown")}")
+          println(s"   Size: ${part.sizeFormatted}")
+      }
     }
 
     // Summary
     println("\n" + "=" * 50)
-    println("Summary:")
-    println(s"  - JSON parts: ${result.jsonParts.size}")
-    println(s"  - PDF parts:  ${result.pdfParts.size}")
-    println(s"  - Images:     ${result.imageParts.size}")
-    println(s"  - Total:      ${result.parts.size}")
+    println("SUMMARY")
+    println("=" * 50)
+    println(s"  JSON parts:  ${result.jsonParts.size}")
+    println(s"  PDF parts:   ${result.pdfParts.size}")
+    println(s"  Image parts: ${result.imageParts.size}")
+    println(s"  Total parts: ${result.parts.size}")
+    println("=" * 50)
   }
 
   /**
@@ -281,6 +362,7 @@ object ShippingLabelClient extends App {
   def savePdfLabel(data: Array[Byte], filename: String): Unit = {
     val path = Paths.get(filename)
     Files.write(path, data)
+    ()
   }
 
   /**
@@ -289,5 +371,6 @@ object ShippingLabelClient extends App {
   def shutdown(): Unit = {
     wsClient.close()
     system.terminate()
+    println("\n🔚 Shutting down...")
   }
 }

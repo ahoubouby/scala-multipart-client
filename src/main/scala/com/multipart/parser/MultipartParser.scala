@@ -59,7 +59,7 @@ object MultipartParser extends LazyLogging {
     logger.info(s"Detected format: ${detected.format.name}, boundary: ${detected.boundary}")
 
     val parserConfig = config.getOrElse(detected.toParserConfig())
-    logger.debug(
+    logger.info(
       s"Using parser config: maxMemoryBuffer=${parserConfig.maxMemoryBufferSize}, " +
         s"maxHeaderSize=${parserConfig.maxHeaderSize}",
     )

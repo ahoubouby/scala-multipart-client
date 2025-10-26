@@ -1,16 +1,18 @@
 package com.multipart.parser
 
 import java.nio.charset.StandardCharsets
+
+import scala.annotation.tailrec
+
 import com.multipart.classifier.{ChainedClassifier, PartClassifier}
 import com.multipart.client._
 import com.multipart.parser.Part.RawPart
 import com.multipart.utils.{BoyerMoore, ByteStringHelpers, NotEnoughDataException}
+
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.pekko.stream._
 import org.apache.pekko.stream.stage._
 import org.apache.pekko.util.ByteString
-
-import scala.annotation.tailrec
 
 // ===================================================================================
 // Functional core: pure parser state machine
@@ -20,7 +22,7 @@ private object Parser {
 
   // ---- Domain emitted to the shell (what to do next)
   sealed trait Out
-  final case class EmitBytes(bs: ByteString) extends Out // Right(bytes)
+  final case class EmitBytes(bs: ByteString) extends Out  // Right(bytes)
   final case class EmitPart(part: Part[Unit]) extends Out // Left(part)
   final case class Fail(message: String) extends Out
   final case class BufferExceeded(message: String) extends Out
@@ -31,23 +33,35 @@ private object Parser {
   case object InitialBoundary extends Phase
   final case class Preamble(searchFrom: Int) extends Phase
   final case class Headers(start: Int, mem: Int) extends Phase
-  final case class FileData(offset: Int, mem: Int, name: String) extends Phase
-  final case class DataBody(start: Int, mem: Int, name: String) extends Phase
-  final case class BadBody(start: Int, mem: Int, headers: Map[String, String]) extends Phase
+
+  final case class FileData(
+    offset: Int,
+    mem: Int,
+    name: String) extends Phase
+
+  final case class DataBody(
+    start: Int,
+    mem: Int,
+    name: String) extends Phase
+
+  final case class BadBody(
+    start: Int,
+    mem: Int,
+    headers: Map[String, String]) extends Phase
   case object Done extends Phase
 
   // ---- Immutable parser state
   final case class State(
-    input:       ByteString,
-    phase:       Phase,
-    terminated:  Boolean,
+    input: ByteString,
+    phase: Phase,
+    terminated: Boolean,
     partCounter: Int,
-    boyerMoore:  BoyerMoore,
-    boundary:    Array[Byte],
+    boyerMoore: BoyerMoore,
+    boundary: Array[Byte],
     boundaryLen: Int,
-    maxHeader:   Int,
-    maxMem:      Int,
-    crlfcrlf:    ByteString,
+    maxHeader: Int,
+    maxMem: Int,
+    crlfcrlf: ByteString,
     classifiers: Seq[PartClassifier], // pluggable
   )
 
@@ -58,7 +72,12 @@ private object Parser {
   @inline def doubleDash(bs: ByteString, off: Int): Boolean =
     ByteStringHelpers.byteChar(bs, off) == '-' && ByteStringHelpers.byteChar(bs, off + 1) == '-'
 
-  @tailrec def matchesBoundary(bs: ByteString, offset: Int, needle: Array[Byte], ix: Int = 2): Boolean =
+  @tailrec def matchesBoundary(
+    bs: ByteString,
+    offset: Int,
+    needle: Array[Byte],
+    ix: Int = 2,
+  ): Boolean =
     (ix == needle.length) || (ByteStringHelpers.byteAt(bs, offset + ix - 2) == needle(ix)) && matchesBoundary(
       bs,
       offset,
@@ -85,7 +104,7 @@ private object Parser {
   def step(s: State): Step = s.phase match {
 
     // -- First boundary at start-of-entity (no CRLF before)
-    case InitialBoundary =>
+    case InitialBoundary              =>
       try
         if (matchesBoundary(s.input, 0, s.boundary)) {
           val ix = s.boundaryLen
@@ -100,7 +119,7 @@ private object Parser {
       }
 
     // -- Everything before first boundary (skip)
-    case Preamble(from) =>
+    case Preamble(from)               =>
       try {
         val idx       = s.boyerMoore.nextIndex(s.input, from)
         val needleEnd = idx + s.boundary.length
@@ -113,7 +132,7 @@ private object Parser {
       }
 
     // -- Parse headers until CRLF CRLF
-    case Headers(start, mem) =>
+    case Headers(start, mem)          =>
       val idx = s.input.indexOfSlice(s.crlfcrlf, start)
       if (idx == -1) {
         if (s.input.length - start >= s.maxHeader)
@@ -122,14 +141,12 @@ private object Parser {
       } else if (idx - start >= s.maxHeader) {
         Step(s, BufferExceeded(s"Header length exceeded ${s.maxHeader}") :: Terminate :: Nil)
       } else {
-        val headerStr = s.input.slice(start, idx).utf8String
-        val headers   = parseHeaderLines(headerStr)
-        val partStart = idx + 4
-        val headersMem = headers.foldLeft(0)(
-          (acc, kv) => acc + kv._1.length + kv._2.length,
-        )
-        val info    = classify(headers, s.classifiers)
-        val nextCnt = s.partCounter + 1
+        val headerStr  = s.input.slice(start, idx).utf8String
+        val headers    = parseHeaderLines(headerStr)
+        val partStart  = idx + 4
+        val headersMem = headers.foldLeft(0)((acc, kv) => acc + kv._1.length + kv._2.length)
+        val info       = classify(headers, s.classifiers)
+        val nextCnt    = s.partCounter + 1
 
         info match {
           case f: FormDataPartInfo if f.filename.isDefined =>
@@ -151,7 +168,7 @@ private object Parser {
       }
 
     // -- Stream file bytes chunk-by-chunk until boundary
-    case FileData(offset, mem, name) =>
+    case FileData(offset, mem, name)  =>
       try {
         val currentEnd = s.boyerMoore.nextIndex(s.input, offset)
         val needleEnd  = currentEnd + s.boundary.length
@@ -175,7 +192,7 @@ private object Parser {
       }
 
     // -- Buffer data part fully (metadata, JSON, etc.)
-    case DataBody(start, mem, name) =>
+    case DataBody(start, mem, name)   =>
       try {
         val currentEnd = s.boyerMoore.nextIndex(s.input, start)
         val needleEnd  = currentEnd + s.boundary.length
@@ -231,30 +248,31 @@ private object Parser {
 // Imperative shell: GraphStage (Pekko Streams)
 // ===================================================================================
 
-/** # GenericBodyPartParser
-  *
-  * A high-performance, streaming **multipart** parser for Pekko Streams.
-  *
-  * ## Highlights
-  *   - Uses **Boyer–Moore** for boundary search (O(n) practical).
-  *   - **Functional core** (`Parser`) with immutable state; the GraphStage only manages back-pressure and emission.
-  *   - Supports **multipart/form-data** and **multipart/related/mixed** via **pluggable classifiers** (e.g.,
-  *     form/file/json).
-  *   - Enforces **maxHeaderSize** and **maxMemoryBufferSize** (streaming for files, buffered for small data parts).
-  *
-  * ## Outputs Emits `RawPart`:
-  *   - `Left(Part[Unit])` events for structural markers (e.g., `FilePart`, `DataPart`, `BadPart`),
-  *   - `Right(ByteString)` chunks for **file content** streaming.
-  *
-  * ## Error Handling
-  *   - Emits `MaxMemoryBufferExceeded` / `ParseError` parts before **terminating** cleanly.
-  *
-  * @param config
-  *   Boundary + limits + classifiers. Boundary must be non-empty and must not end with a space.
-  */
+/**
+ * # GenericBodyPartParser
+ *
+ * A high-performance, streaming **multipart** parser for Pekko Streams.
+ *
+ * ## Highlights
+ *   - Uses **Boyer–Moore** for boundary search (O(n) practical).
+ *   - **Functional core** (`Parser`) with immutable state; the GraphStage only manages back-pressure and emission.
+ *   - Supports **multipart/form-data** and **multipart/related/mixed** via **pluggable classifiers** (e.g.,
+ *     form/file/json).
+ *   - Enforces **maxHeaderSize** and **maxMemoryBufferSize** (streaming for files, buffered for small data parts).
+ *
+ * ## Outputs Emits `RawPart`:
+ *   - `Left(Part[Unit])` events for structural markers (e.g., `FilePart`, `DataPart`, `BadPart`),
+ *   - `Right(ByteString)` chunks for **file content** streaming.
+ *
+ * ## Error Handling
+ *   - Emits `MaxMemoryBufferExceeded` / `ParseError` parts before **terminating** cleanly.
+ *
+ * @param config
+ *   Boundary + limits + classifiers. Boundary must be non-empty and must not end with a space.
+ */
 final class GenericBodyPartParser(config: MultipartParserConfig)
-    extends GraphStage[FlowShape[ByteString, RawPart]]
-    with LazyLogging {
+  extends GraphStage[FlowShape[ByteString, RawPart]]
+  with LazyLogging {
 
   import Parser._
 
@@ -287,16 +305,16 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
 
       // functional parser state
       private var state = State(
-        input       = ByteString.empty,
-        phase       = InitialBoundary,
-        terminated  = false,
+        input = ByteString.empty,
+        phase = InitialBoundary,
+        terminated = false,
         partCounter = 0,
-        boyerMoore  = bm,
-        boundary    = boundaryBytes,
+        boyerMoore = bm,
+        boundary = boundaryBytes,
         boundaryLen = boundaryBytes.length - 2,
-        maxHeader   = config.maxHeaderSize,
-        maxMem      = config.maxMemoryBufferSize,
-        crlfcrlf    = crlfcrlf,
+        maxHeader = config.maxHeaderSize,
+        maxMem = config.maxMemoryBufferSize,
+        crlfcrlf = crlfcrlf,
         classifiers = config.classifiers,
       )
 
@@ -356,9 +374,9 @@ final class GenericBodyPartParser(config: MultipartParserConfig)
           if (outs.nonEmpty) {
             outs.foreach {
               case EmitBytes(bs)       => if (bs.nonEmpty) queue = queue.enqueue(Right(bs))
-              case EmitPart(p)         => queue    = queue.enqueue(Left(p))
-              case BufferExceeded(msg) => queue    = queue.enqueue(Left(MaxMemoryBufferExceeded(msg)))
-              case Fail(msg)           => queue    = queue.enqueue(Left(ParseError(msg)))
+              case EmitPart(p)         => queue = queue.enqueue(Left(p))
+              case BufferExceeded(msg) => queue = queue.enqueue(Left(MaxMemoryBufferExceeded(msg)))
+              case Fail(msg)           => queue = queue.enqueue(Left(ParseError(msg)))
               case Terminate           => finished = true
             }
           }

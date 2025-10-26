@@ -183,9 +183,9 @@ class MockShippingApi extends HttpClient {
 
 ## Further Reading
 
-- [Library Documentation](../../README.md)
-- [API Reference](../../docs/ARCHITECTURE.md)
-- [Publishing Guide](../../docs/PUBLISHING.md)
+- [Library Documentation](../README.md)
+- [API Reference](../docs/ARCHITECTURE.md)
+- [Publishing Guide](../docs/PUBLISHING.md)
 
 ## License
 

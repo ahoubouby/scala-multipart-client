@@ -1,196 +1,150 @@
 // ========================================
-// Project Metadata
+// Build-wide settings
 // ========================================
+ThisBuild / organization := "io.github.ahoubouby"
+ThisBuild / scalaVersion  := "2.13.16"
 
-name := "scala-multipart-client"
+// ----------------------------------------
+// Shared dependency versions
+// ----------------------------------------
+lazy val playVersion      = "3.0.4"
+lazy val pekkoVersion     = "1.0.3"   // unified
+lazy val pekkoHttpVersion = "1.0.1"   // override Pekko deps to 1.0.3 via dependencyOverrides
 
-organization := "io.github.ahoubouby"
-
-version := "0.1.0"
-
-scalaVersion := "2.13.16"
-
-// ========================================
-// Library Information
-// ========================================
-
-description := "A generic, type-safe Scala library for parsing multipart HTTP responses"
-
-homepage := Some(url("https://github.com/ahoubouby/scala-multipart-client"))
-
-licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT"))
-
-developers := List(
-  Developer(
-    id = "ahoubouby",
-    name = "Ahmed Houbouby",
-    email = "ahoubouby@example.com",
-    url = url("https://github.com/ahoubouby"),
+// ----------------------------------------
+// Shared settings for all subprojects
+// ----------------------------------------
+lazy val commonSettings = Seq(
+  scalacOptions ++= Seq(
+    "-encoding","UTF-8",
+    "-deprecation","-feature","-unchecked","-Xlint",
+    "-Ywarn-dead-code","-Ywarn-numeric-widen","-Ywarn-value-discard",
+    "-Xfatal-warnings",
+    "-nowarn"
   ),
-)
-
-scmInfo := Some(
-  ScmInfo(
-    url("https://github.com/ahoubouby/scala-multipart-client"),
-    "scm:git:git@github.com:ahoubouby/scala-multipart-client.git",
-  ),
+  Test / parallelExecution := false,
+  Test / fork              := true,
+  Test / testOptions      += Tests.Argument(TestFrameworks.ScalaTest, "-oD"),
 )
 
 // ========================================
-// Dependencies
+// Root project = your library
 // ========================================
+lazy val root = (project in file("."))
+  .settings(commonSettings)
+  .settings(
+    name        := "scala-multipart-client",
+    version     := "0.1.0",
+    description := "A generic, type-safe Scala library for parsing multipart HTTP responses",
 
-val playVersion      = "3.0.4"
-val pekkoVersion     = "1.0.3"   // <- unified
-val pekkoHttpVersion = "1.0.1"   // OK; we’ll override its Pekko deps to 1.0.3
+    homepage := Some(url("https://github.com/ahoubouby/scala-multipart-client")),
+    licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT")),
+    developers := List(
+      Developer(
+        id = "ahoubouby",
+        name = "Ahmed Houbouby",
+        email = "ahoubouby@example.com",
+        url = url("https://github.com/ahoubouby"),
+      )
+    ),
+    scmInfo := Some(
+      ScmInfo(
+        url("https://github.com/ahoubouby/scala-multipart-client"),
+        "scm:git:git@github.com:ahoubouby/scala-multipart-client.git",
+      )
+    ),
 
-libraryDependencies ++= Seq(
-  // Play WS Client (includes Pekko dependencies)
-  "org.playframework" %% "play-ws-standalone" % playVersion,
-  "org.playframework" %% "play-ws-standalone-json" % playVersion,
-  // Pekko Streams (for multipart parsing)
-  "org.apache.pekko" %% "pekko-stream" % pekkoVersion,
-  "org.apache.pekko" %% "pekko-actor" % pekkoVersion,
-  // Pekko HTTP (for multipart support)
-  "org.apache.pekko" %% "pekko-http" % pekkoHttpVersion,
-  // Play JSON
-  "org.playframework" %% "play-json" % playVersion,
-  // Logging
-  "ch.qos.logback" % "logback-classic" % "1.4.14",
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
-  // Testing (Test scope only)
-  "org.scalatest" %% "scalatest" % "3.2.18" % Test,
-  "org.scalatestplus.play" %% "scalatestplus-play" % "7.0.1" % Test,
-  "org.mockito" %% "mockito-scala" % "1.17.30" % Test,
-  "org.apache.pekko" %% "pekko-stream-testkit" % pekkoVersion % Test,
-  "org.apache.pekko" %% "pekko-testkit" % pekkoVersion % Test,
-)
+    // -------- Dependencies (library only) --------
+    libraryDependencies ++= Seq(
+      // Play WS Client (includes Pekko dependencies)
+      "org.playframework" %% "play-ws-standalone"      % playVersion,
+      "org.playframework" %% "play-ws-standalone-json" % playVersion,
+      // Pekko Streams / Actors
+      "org.apache.pekko"  %% "pekko-stream"            % pekkoVersion,
+      "org.apache.pekko"  %% "pekko-actor"             % pekkoVersion,
+      // Pekko HTTP (multipart)
+      "org.apache.pekko"  %% "pekko-http"              % pekkoHttpVersion,
+      // Play JSON
+      "org.playframework" %% "play-json"               % playVersion,
+      // Logging
+      "ch.qos.logback"     % "logback-classic"         % "1.4.14",
+      "com.typesafe.scala-logging" %% "scala-logging"  % "3.9.5",
+      // Test
+      "org.scalatest"           %% "scalatest"            % "3.2.18" % Test,
+      "org.scalatestplus.play"  %% "scalatestplus-play"   % "7.0.1"  % Test,
+      "org.mockito"             %% "mockito-scala"        % "1.17.30" % Test,
+      "org.apache.pekko"        %% "pekko-stream-testkit" % pekkoVersion % Test,
+      "org.apache.pekko"        %% "pekko-testkit"        % pekkoVersion % Test,
+    ),
 
+    dependencyOverrides ++= Seq(
+      "org.apache.pekko" %% "pekko-actor"                 % pekkoVersion,
+      "org.apache.pekko" %% "pekko-stream"                % pekkoVersion,
+      "org.apache.pekko" %% "pekko-actor-typed"           % pekkoVersion,
+      "org.apache.pekko" %% "pekko-slf4j"                 % pekkoVersion,
+      "org.apache.pekko" %% "pekko-serialization-jackson" % pekkoVersion,
+      "org.apache.pekko" %% "pekko-protobuf-v3"           % pekkoVersion,
+      "org.apache.pekko" %% "pekko-testkit"               % pekkoVersion,
+      "org.apache.pekko" %% "pekko-stream-testkit"        % pekkoVersion
+    ),
 
-dependencyOverrides ++= Seq(
-  "org.apache.pekko" %% "pekko-actor"                 % pekkoVersion,
-  "org.apache.pekko" %% "pekko-stream"                % pekkoVersion,
-  "org.apache.pekko" %% "pekko-actor-typed"           % pekkoVersion,
-  "org.apache.pekko" %% "pekko-slf4j"                 % pekkoVersion,
-  "org.apache.pekko" %% "pekko-serialization-jackson" % pekkoVersion,
-  "org.apache.pekko" %% "pekko-protobuf-v3"           % pekkoVersion,
-  "org.apache.pekko" %% "pekko-testkit"               % pekkoVersion,
-  "org.apache.pekko" %% "pekko-stream-testkit"        % pekkoVersion
-)
-// ========================================
-// Compiler Options
-// ========================================
+    // -------- Publishing (library only) --------
+    publishTo := {
+      val nexus = "https://s01.oss.sonatype.org/"
+      if (isSnapshot.value)
+        Some("snapshots" at nexus + "content/repositories/snapshots")
+      else
+        Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+    },
+    publishMavenStyle    := true,
+    Test / publishArtifact := false,
+    pomIncludeRepository := { _ => false },
+    pomExtra :=
+      <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/ahoubouby/scala-multipart-client/issues</url>
+      </issueManagement>,
 
-scalacOptions ++= Seq(
-  "-encoding",
-  "UTF-8",
-  "-deprecation",
-  "-feature",
-  "-unchecked",
-  "-Xlint",
-  "-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
-  "-Ywarn-value-discard",
-  "-Xfatal-warnings", // Treat warnings as errors
-)
+    // -------- Artifacts --------
+    Compile / doc / scalacOptions ++= Seq(
+      "-doc-title","Scala Multipart Client",
+      "-doc-version", version.value
+    ),
+    Compile / packageSrc / publishArtifact := true,
+    Compile / packageDoc / publishArtifact := true,
 
-// ========================================
-// Test Configuration
-// ========================================
-
-Test / parallelExecution := false
-Test / fork := true
-Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
-
-// ========================================
-// Publishing Configuration
-// ========================================
-
-// Publish to Sonatype (Maven Central)
-publishTo := {
-  val nexus = "https://s01.oss.sonatype.org/"
-  if (isSnapshot.value) {
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  } else {
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
-  }
-}
-
-// Required for Sonatype
-publishMavenStyle := true
-
-// Don't publish test artifacts
-Test / publishArtifact := false
-
-// POM settings for Maven Central
-pomIncludeRepository := { _ => false }
-
-// Additional POM information
-pomExtra :=
-  <issueManagement>
-    <system>GitHub</system>
-    <url>https://github.com/ahoubouby/scala-multipart-client/issues</url>
-  </issueManagement>
-
-// ========================================
-// Artifact Generation
-// ========================================
-
-// Generate scaladoc
-Compile / doc / scalacOptions ++= Seq(
-  "-doc-title",
-  "Scala Multipart Client",
-  "-doc-version",
-  version.value,
-)
-
-// Package source code
-Compile / packageSrc / publishArtifact := true
-
-// Package scaladoc
-Compile / packageDoc / publishArtifact := true
+    // -------- Custom tasks --------
+    releaseCheck := {
+      val log = streams.value.log
+      log.info("Checking release readiness...")
+      if (version.value.endsWith("-SNAPSHOT"))
+        sys.error("Cannot release a SNAPSHOT version. Update version in build.sbt")
+      (Test / test).value
+      log.info("✓ Project is ready for release")
+    }
+  )
 
 // ========================================
-// Cross Building (Optional)
+// Examples subproject (depends on the library)
 // ========================================
+lazy val examples = (project in file("examples"))
+  .dependsOn(root)
+  .settings(commonSettings)
+  .settings(
+    name := "scala-multipart-client-examples",
+    // don't ever publish this module
+    publish / skip := true,
+    // add any extra deps examples need at runtime/test only
+    libraryDependencies ++= Seq(
+      // Play WS Standalone (AHC implementation)
+      "org.playframework" %% "play-ahc-ws-standalone" % playVersion,
+      "ch.qos.logback" % "logback-classic" % "1.4.14" % Runtime
+    )
+  )
 
-// Uncomment to enable cross-building for multiple Scala versions
-// crossScalaVersions := Seq("2.13.16", "3.3.1")
-
+// Optionally, aggregate so running `test` at the root includes `examples` tests
+// (remove `.aggregate(examples)` if you prefer isolation)
 // ========================================
-// GitHub Packages Publishing (Alternative)
+// Keys
 // ========================================
-
-// Uncomment to publish to GitHub Packages instead of Maven Central
-// publishTo := Some(
-//   "GitHub Package Registry" at "https://maven.pkg.github.com/ahoubouby/scala-multipart-client"
-// )
-// publishMavenStyle := true
-// credentials += Credentials(
-//   "GitHub Package Registry",
-//   "maven.pkg.github.com",
-//   "ahoubouby",
-//   sys.env.getOrElse("GITHUB_TOKEN", "")
-// )
-
-// ========================================
-// Custom Tasks
-// ========================================
-
-// Task to check if ready for release
 lazy val releaseCheck = taskKey[Unit]("Check if project is ready for release")
-
-releaseCheck := {
-  val log = streams.value.log
-  log.info("Checking release readiness...")
-
-  // Check version is not snapshot
-  if (version.value.endsWith("-SNAPSHOT")) {
-    sys.error("Cannot release a SNAPSHOT version. Update version in build.sbt")
-  }
-
-  // Check tests pass
-  (Test / test).value
-
-  log.info("✓ Project is ready for release")
-}
