@@ -18,4 +18,7 @@
     <logger name="io.netty" level="WARN" />
     <logger name="org.apache.pekko" level="INFO" />
 
+    <!-- DEBUG multipart parser to see state machine flow -->
+    <logger name="com.multipart.parser.GenericBodyPartParser" level="DEBUG" />
+
 </configuration>
