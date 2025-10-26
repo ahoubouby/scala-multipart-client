@@ -102,8 +102,8 @@ case class DetectedFormat(
   /** Convert to parser configuration
     */
   def toParserConfig(
-    maxMemoryBufferSize: Int = 16 * 1024,
-    maxHeaderSize:       Int = 4 * 1024,
+    maxMemoryBufferSize: Int =1024 * 1024,
+    maxHeaderSize:       Int =4096,
   ): MultipartParserConfig = {
 
     // Select classifiers based on detected format

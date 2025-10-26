@@ -192,7 +192,7 @@ object ShippingLabelClient extends App {
   println("=" * 50)
 
   // Example: Request shipping label
-  val result = requestShippingLabel
+  val result = requestShippingLabelRaw
 
   result.onComplete {
     case Success(multipart) =>
@@ -253,95 +253,100 @@ object ShippingLabelClient extends App {
           println(s"  $name: $value")
         }
       }
-
+      val parserConfig = com.multipart.parser.MultipartParserConfig(
+        boundary = "",  // Auto-detected from Content-Type header
+        maxMemoryBufferSize = 1024 * 1024,  // 1MB (PDF labels are ~80-100KB)
+        maxHeaderSize = 4096,  // 4KB (default)
+      )
+      MultipartParser.parse(new PlayWSHttpResponse(response))
       // Consume body as raw bytes
-      response.bodyAsSource
-        .runFold(org.apache.pekko.util.ByteString.empty)(_ ++ _)
-        .map { bytes =>
-          val bodyLength = bytes.length
-          println(s"\nResponse Body Length: $bodyLength bytes")
-          println("\n" + "-" * 80)
-          println("RAW RESPONSE BODY:")
-          println("-" * 80)
-
-          // Try to display as string
-          try {
-            val bodyStr = bytes.utf8String
-
-            // Show the full response with control characters visible
-            println("\n[First 2000 characters with escaped control chars:]")
-            val preview = bodyStr.take(2000)
-              .replace("\r", "\\r")
-              .replace("\n", "\\n")
-            println(preview)
-
-            if (bodyStr.length > 2000) {
-              println(s"\n... (${bodyStr.length - 2000} more characters)")
-            }
-
-            // Also show formatted version
-            println("\n[Actual formatted body - first 1000 chars:]")
-            println(bodyStr.take(1000))
-            if (bodyStr.length > 1000) {
-              println(s"\n... (${bodyStr.length - 1000} more characters)")
-            }
-
-            // Show hex dump of first 100 bytes to see exact encoding
-            println("\n[Hex dump of first 100 bytes:]")
-            val hexBytes = bytes.take(100).toArray
-            hexBytes.grouped(16).foreach { group =>
-              val hex = group.map(b => f"$b%02x").mkString(" ")
-              val ascii = group.map(b => if (b >= 32 && b < 127) b.toChar else '.').mkString
-              println(f"$hex%-48s  $ascii")
-            }
-
-            // Show hex dump around position 140-180 to see the header delimiter
-            if (bytes.length > 180) {
-              println("\n[Hex dump of bytes 140-180 (looking for header delimiter \\r\\n\\r\\n = 0d 0a 0d 0a):]")
-              val headerHex = bytes.slice(140, 180).toArray
-              headerHex.grouped(16).zipWithIndex.foreach { case (group, idx) =>
-                val offset = 140 + (idx * 16)
-                val hex = group.map(b => f"$b%02x").mkString(" ")
-                val ascii = group.map(b => if (b >= 32 && b < 127) b.toChar else '.').mkString
-                println(f"$offset%04d: $hex%-48s  $ascii")
-              }
-            }
-
-            // Search for \r\n\r\n in the data
-            val crlfcrlf = org.apache.pekko.util.ByteString("\r\n\r\n")
-            val delimiterPos = bytes.indexOfSlice(crlfcrlf)
-            println(s"\n[Delimiter Search] Looking for \\r\\n\\r\\n (0d 0a 0d 0a)...")
-            if (delimiterPos >= 0) {
-              println(s"✓ Found at position: $delimiterPos")
-              println(s"  Expected at position 47+headers, checking what's at position 47...")
-
-              // Show what's at position 47 (where parser expects headers to start)
-              if (bytes.length > 47) {
-                val from47 = bytes.drop(47).take(200).utf8String
-                  .replace("\r", "\\r")
-                  .replace("\n", "\\n")
-                println(s"  Data at position 47: $from47")
-              }
-            } else {
-              println(s"✗ NOT FOUND in the entire ${bytes.length} bytes!")
-              println(s"  This explains why the parser is stuck!")
-            }
-
-
-          } catch {
-            case e: Exception =>
-              println(s"Failed to decode as UTF-8: ${e.getMessage}")
-              println("\n[Hex dump of first 200 bytes:]")
-              val hexBytes = bytes.take(200).toArray
-              hexBytes.grouped(16).foreach { group =>
-                val hex = group.map(b => f"$b%02x").mkString(" ")
-                println(hex)
-              }
-          }
-
-          println("\n" + "=" * 80)
-          ()
-        }
+//      response.bodyAsSource
+//        .runFold(org.apache.pekko.util.ByteString.empty)(_ ++ _)
+//        .map { bytes =>
+//          val bodyLength = bytes.length
+//          println(s"\nResponse Body Length: $bodyLength bytes")
+//          println("\n" + "-" * 80)
+//          println("RAW RESPONSE BODY:")
+//          println("-" * 80)
+//
+//          // Try to display as string
+//          try {
+//            val bodyStr = bytes.utf8String
+//
+//            // Show the full response with control characters visible
+//            println("\n[First 2000 characters with escaped control chars:]")
+//            val preview = bodyStr.take(2000)
+//              .replace("\r", "\\r")
+//              .replace("\n", "\\n")
+//            println(preview)
+//
+//            if (bodyStr.length > 2000) {
+//              println(s"\n... (${bodyStr.length - 2000} more characters)")
+//            }
+//
+//            // Also show formatted version
+//            println("\n[Actual formatted body - first 1000 chars:]")
+//            println(bodyStr.take(1000))
+//            if (bodyStr.length > 1000) {
+//              println(s"\n... (${bodyStr.length - 1000} more characters)")
+//            }
+//
+//            // Show hex dump of first 100 bytes to see exact encoding
+//            println("\n[Hex dump of first 100 bytes:]")
+//            val hexBytes = bytes.take(100).toArray
+//            hexBytes.grouped(16).foreach { group =>
+//              val hex = group.map(b => f"$b%02x").mkString(" ")
+//              val ascii = group.map(b => if (b >= 32 && b < 127) b.toChar else '.').mkString
+//              println(f"$hex%-48s  $ascii")
+//            }
+//
+//            // Show hex dump around position 140-180 to see the header delimiter
+//            if (bytes.length > 180) {
+//              println("\n[Hex dump of bytes 140-180 (looking for header delimiter \\r\\n\\r\\n = 0d 0a 0d 0a):]")
+//              val headerHex = bytes.slice(140, 180).toArray
+//              headerHex.grouped(16).zipWithIndex.foreach { case (group, idx) =>
+//                val offset = 140 + (idx * 16)
+//                val hex = group.map(b => f"$b%02x").mkString(" ")
+//                val ascii = group.map(b => if (b >= 32 && b < 127) b.toChar else '.').mkString
+//                println(f"$offset%04d: $hex%-48s  $ascii")
+//              }
+//            }
+//
+//            // Search for \r\n\r\n in the data
+//            val crlfcrlf = org.apache.pekko.util.ByteString("\r\n\r\n")
+//            val delimiterPos = bytes.indexOfSlice(crlfcrlf)
+//            println(s"\n[Delimiter Search] Looking for \\r\\n\\r\\n (0d 0a 0d 0a)...")
+//            if (delimiterPos >= 0) {
+//              println(s"✓ Found at position: $delimiterPos")
+//              println(s"  Expected at position 47+headers, checking what's at position 47...")
+//
+//              // Show what's at position 47 (where parser expects headers to start)
+//              if (bytes.length > 47) {
+//                val from47 = bytes.drop(47).take(200).utf8String
+//                  .replace("\r", "\\r")
+//                  .replace("\n", "\\n")
+//                println(s"  Data at position 47: $from47")
+//              }
+//            } else {
+//              println(s"✗ NOT FOUND in the entire ${bytes.length} bytes!")
+//              println(s"  This explains why the parser is stuck!")
+//            }
+//
+//
+//          } catch {
+//            case e: Exception =>
+//              println(s"Failed to decode as UTF-8: ${e.getMessage}")
+//              println("\n[Hex dump of first 200 bytes:]")
+//              val hexBytes = bytes.take(200).toArray
+//              hexBytes.grouped(16).foreach { group =>
+//                val hex = group.map(b => f"$b%02x").mkString(" ")
+//                println(hex)
+//              }
+//          }
+//
+//          println("\n" + "=" * 80)
+//          ()
+//        }
     }
   }
 
