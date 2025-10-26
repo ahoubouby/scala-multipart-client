@@ -105,35 +105,65 @@ private object Parser {
 
     // -- First boundary at start-of-entity (no CRLF before)
     case InitialBoundary              =>
+      logger.debug(s"InitialBoundary phase: inputLen=${s.input.length}, boundaryLen=${s.boundaryLen}")
       try
-        if (matchesBoundary(s.input, 0, s.boundary)) {
+        val matches = matchesBoundary(s.input, 0, s.boundary)
+        logger.debug(s"InitialBoundary: matchesBoundary result=$matches")
+        if (matches) {
           val ix = s.boundaryLen
-          if (crlf(s.input, ix)) Step(s.copy(phase = Headers(ix + 2, 0)), Nil)
-          else if (doubleDash(s.input, ix)) Step(s.copy(phase = Done, terminated = true), Terminate :: Nil)
-          else Step(s.copy(phase = Preamble(0)), Nil)
-        } else Step(s.copy(phase = Preamble(0)), Nil)
+          if (crlf(s.input, ix)) {
+            logger.debug(s"InitialBoundary: Found CRLF after boundary, transitioning to Headers(${ix + 2}, 0)")
+            Step(s.copy(phase = Headers(ix + 2, 0)), Nil)
+          }
+          else if (doubleDash(s.input, ix)) {
+            logger.debug(s"InitialBoundary: Found closing boundary (--)")
+            Step(s.copy(phase = Done, terminated = true), Terminate :: Nil)
+          }
+          else {
+            logger.debug(s"InitialBoundary: No CRLF or --, going to Preamble")
+            Step(s.copy(phase = Preamble(0)), Nil)
+          }
+        } else {
+          logger.debug(s"InitialBoundary: No match, going to Preamble(0)")
+          Step(s.copy(phase = Preamble(0)), Nil)
+        }
       catch {
         case NotEnoughDataException =>
+          logger.debug(s"InitialBoundary: Not enough data, waiting")
           // Need more bytes; keep state, no outputs.
           Step(s, Nil)
       }
 
     // -- Everything before first boundary (skip)
     case Preamble(from)               =>
+      logger.debug(s"Preamble phase: from=$from, inputLen=${s.input.length}")
       try {
         val idx       = s.boyerMoore.nextIndex(s.input, from)
+        logger.debug(s"Preamble: Found boundary at idx=$idx")
         val needleEnd = idx + s.boundary.length
-        if (crlf(s.input, needleEnd)) Step(s.copy(phase = Headers(needleEnd + 2, 0)), Nil)
-        else if (doubleDash(s.input, needleEnd)) Step(s.copy(phase = Done, terminated = true), Terminate :: Nil)
-        else Step(s.copy(phase = Preamble(needleEnd)), Nil) // false positive, keep searching
+        if (crlf(s.input, needleEnd)) {
+          logger.debug(s"Preamble: Found CRLF after boundary, transitioning to Headers(${needleEnd + 2}, 0)")
+          Step(s.copy(phase = Headers(needleEnd + 2, 0)), Nil)
+        }
+        else if (doubleDash(s.input, needleEnd)) {
+          logger.debug(s"Preamble: Found closing boundary")
+          Step(s.copy(phase = Done, terminated = true), Terminate :: Nil)
+        }
+        else {
+          logger.debug(s"Preamble: False positive, continuing search from $needleEnd")
+          Step(s.copy(phase = Preamble(needleEnd)), Nil) // false positive, keep searching
+        }
       } catch {
         case NotEnoughDataException =>
+          logger.debug(s"Preamble: Not enough data, waiting")
           Step(s, Nil) // wait for more data
       }
 
     // -- Parse headers until CRLF CRLF
     case Headers(start, mem)          =>
+      logger.debug(s"Headers phase: start=$start, mem=$mem, inputLen=${s.input.length}, looking for CRLF CRLF")
       val idx = s.input.indexOfSlice(s.crlfcrlf, start)
+      logger.debug(s"Headers phase: delimiter search result: idx=$idx")
       if (idx == -1) {
         // Debug: log when we can't find the header delimiter
         val available = s.input.length - start
@@ -142,16 +172,17 @@ private object Parser {
           s.input.slice(start, start + previewLen).utf8String.replace("\r", "\\r").replace("\n", "\\n")
         } else ""
 
+        logger.warn(s"Headers phase: CRLF CRLF not found. Start=$start, available=$available bytes, preview: $preview")
+
         if (s.input.length - start >= s.maxHeader)
           Step(s, BufferExceeded(s"Header length exceeded ${s.maxHeader}") :: Terminate :: Nil)
         else {
-          // Only log at trace level to avoid spam, but helps debugging
-          // logger.trace(s"Headers phase: waiting for \\r\\n\\r\\n delimiter. Start=$start, available=$available bytes, preview: $preview")
           Step(s, Nil) // need more bytes
         }
       } else if (idx - start >= s.maxHeader) {
         Step(s, BufferExceeded(s"Header length exceeded ${s.maxHeader}") :: Terminate :: Nil)
       } else {
+        logger.debug(s"Headers phase: Found delimiter at $idx, header length=${idx - start}")
         val headerStr  = s.input.slice(start, idx).utf8String
         val headers    = parseHeaderLines(headerStr)
         val partStart  = idx + 4
