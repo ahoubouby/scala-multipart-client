@@ -3,6 +3,8 @@ package com.ahoubouby.multipart.examples
 import com.multipart.api.Multipart
 import com.multipart.client.PlayWSHttpClient
 import com.multipart.model.MultipartResult
+import com.multipart.parser.NonMultipartResponseException
+
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import play.api.libs.ws.ahc.StandaloneAhcWSClient
@@ -197,6 +199,11 @@ object ShippingLabelClient extends App {
       processMultipartResponse(multipart)
       shutdown()
 
+    case Failure(exception: NonMultipartResponseException) =>
+      println(s"\n✗ API returned error response instead of multipart")
+      handleJsonError(exception)
+      shutdown()
+
     case Failure(exception) =>
       println(s"\n✗ Failed to get shipping label: ${exception.getMessage}")
       exception.printStackTrace()
@@ -363,6 +370,61 @@ object ShippingLabelClient extends App {
     val path = Paths.get(filename)
     Files.write(path, data)
     ()
+  }
+
+  /**
+   * Handle JSON error response
+   *
+   * @param exception The NonMultipartResponseException containing error details
+   */
+  def handleJsonError(exception: NonMultipartResponseException): Unit = {
+    println("\n" + "=" * 50)
+    println("ERROR RESPONSE DETAILS")
+    println("=" * 50)
+    println(s"HTTP Status: ${exception.status}")
+    println(s"Content-Type: ${exception.contentType}")
+
+    if (exception.isJsonError) {
+      println("\nJSON Error Body:")
+      println("-" * 50)
+
+      // Access raw JsValue for full flexibility
+      exception.jsonBody.foreach { json =>
+        println(Json.prettyPrint(json))
+      }
+
+      // Use built-in helper for common error messages
+      exception.errorMessage.foreach { msg =>
+        println(s"\nError Message: $msg")
+      }
+
+      // Example: Extract specific fields using getJsonField
+      exception.getJsonField("timestamp").foreach { ts =>
+        println(s"Timestamp: $ts")
+      }
+
+      // Example: Convert entire JSON to flat map for logging
+      val allFields = exception.toMap
+      if (allFields.nonEmpty) {
+        println("\nAll Fields:")
+        allFields.foreach {
+          case (key, value) => println(s"  $key: $value")
+        }
+      }
+
+      // Example: Custom field extraction for your specific API
+      exception.jsonBody.foreach { json =>
+        // For Colissimo-specific fields (customize for your API)
+        (json \ "path").asOpt[String].foreach(path => println(s"Request Path: $path"))
+        (json \ "status").asOpt[Int].foreach(status => println(s"Error Status: $status"))
+      }
+    } else {
+      println("\nNon-JSON error response received")
+      exception.bodyAsString.foreach { body =>
+        println(s"Raw body: ${body.take(500)}${if (body.length > 500) "..." else ""}")
+      }
+    }
+    println("=" * 50)
   }
 
   /**
