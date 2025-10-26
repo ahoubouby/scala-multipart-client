@@ -190,18 +190,12 @@ object ShippingLabelClient extends App {
   println(s"API Token: ${apiToken.take(10)}...")
   println("=" * 50)
 
-  // Example: Request shipping label
-  val result = requestShippingLabel
+  // Example: Request shipping label (RAW DEBUG MODE - no parsing)
+  val result = requestShippingLabelRaw
 
   result.onComplete {
-    case Success(multipart) =>
-      println("\n✓ Successfully received multipart response")
-      processMultipartResponse(multipart)
-      shutdown()
-
-    case Failure(exception: NonMultipartResponseException) =>
-      println(s"\n✗ API returned error response instead of multipart")
-      handleJsonError(exception)
+    case Success(_) =>
+      println("\n✓ Raw response printed above")
       shutdown()
 
     case Failure(exception) =>
@@ -213,6 +207,103 @@ object ShippingLabelClient extends App {
   // ========================================
   // API Methods
   // ========================================
+
+  /**
+   * Request a shipping label from the Colissimo API (RAW DEBUG MODE)
+   *
+   * This version bypasses multipart parsing and just prints the raw response
+   * to help diagnose what the server is actually sending.
+   *
+   * @return Future indicating success/failure
+   */
+  def requestShippingLabelRaw: Future[Unit] = {
+    import org.apache.pekko.stream.scaladsl.Sink
+
+    println("\n📤 Sending request to Colissimo API (RAW DEBUG MODE)...")
+    println(s"   Endpoint: POST /sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
+    println(s"   Headers:")
+    println(s"     - Content-Type: application/json")
+    println(s"     - token: ${apiToken.take(10)}...")
+    println(s"   Payload size: ${Json.stringify(payload).length} bytes")
+    println()
+
+    // Make raw HTTP request without multipart parsing
+    val request = wsClient
+      .url(s"$apiBaseUrl/sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
+      .withRequestTimeout(30.seconds)
+      .addHttpHeaders("token" -> apiToken)
+      .addHttpHeaders("Content-Type" -> "application/json")
+      .post(Json.stringify(payload))
+
+    request.flatMap { response =>
+      println("\n" + "=" * 80)
+      println("RAW HTTP RESPONSE")
+      println("=" * 80)
+      println(s"Status Code: ${response.status} ${response.statusText}")
+      println(s"\nResponse Headers:")
+      response.headers.foreach { case (name, values) =>
+        values.foreach { value =>
+          println(s"  $name: $value")
+        }
+      }
+
+      // Consume body as raw bytes
+      response.bodyAsSource
+        .runFold(org.apache.pekko.util.ByteString.empty)(_ ++ _)
+        .map { bytes =>
+          val bodyLength = bytes.length
+          println(s"\nResponse Body Length: $bodyLength bytes")
+          println("\n" + "-" * 80)
+          println("RAW RESPONSE BODY:")
+          println("-" * 80)
+
+          // Try to display as string
+          try {
+            val bodyStr = bytes.utf8String
+
+            // Show the full response with control characters visible
+            println("\n[First 2000 characters with escaped control chars:]")
+            val preview = bodyStr.take(2000)
+              .replace("\r", "\\r")
+              .replace("\n", "\\n")
+            println(preview)
+
+            if (bodyStr.length > 2000) {
+              println(s"\n... (${bodyStr.length - 2000} more characters)")
+            }
+
+            // Also show formatted version
+            println("\n[Actual formatted body - first 1000 chars:]")
+            println(bodyStr.take(1000))
+            if (bodyStr.length > 1000) {
+              println(s"\n... (${bodyStr.length - 1000} more characters)")
+            }
+
+            // Show hex dump of first 100 bytes to see exact encoding
+            println("\n[Hex dump of first 100 bytes:]")
+            val hexBytes = bytes.take(100).toArray
+            hexBytes.grouped(16).foreach { group =>
+              val hex = group.map(b => f"$b%02x").mkString(" ")
+              val ascii = group.map(b => if (b >= 32 && b < 127) b.toChar else '.').mkString
+              println(f"$hex%-48s  $ascii")
+            }
+
+          } catch {
+            case e: Exception =>
+              println(s"Failed to decode as UTF-8: ${e.getMessage}")
+              println("\n[Hex dump of first 200 bytes:]")
+              val hexBytes = bytes.take(200).toArray
+              hexBytes.grouped(16).foreach { group =>
+                val hex = group.map(b => f"$b%02x").mkString(" ")
+                println(hex)
+              }
+          }
+
+          println("\n" + "=" * 80)
+          ()
+        }
+    }
+  }
 
   /**
    * Request a shipping label from the Colissimo API
