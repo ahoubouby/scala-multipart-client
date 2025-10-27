@@ -210,7 +210,7 @@ object ShippingLabelClient extends App {
   println("=" * 50)
 
   // Example: Request shipping label
-  val result = requestShippingLabelRaw
+  val result = requestShippingLabel
 
   result.onComplete {
     case Success(multipart) =>
@@ -386,10 +386,9 @@ object ShippingLabelClient extends App {
     Multipart
       .request(httpClient)
       .post("/sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
-      .withHeader("token", "bca3088be3fe5fb79f1c6d3122501e2f")
-      // .addHttpHeaders("Content-Type" -> "application/json")
-      .withStringBody(Json.stringify(payload), "application/json")
-      // .withParserConfig(parserConfig)  // ← Add custom config here
+      .withJsonBody(payload)
+      .withHeader("token", "f8c8557f88f25f4e12569a5747ad3d29")
+
       .withTimeout(30.seconds)
       .execute()
       .andThen {

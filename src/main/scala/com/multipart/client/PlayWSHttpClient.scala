@@ -1,10 +1,10 @@
 package com.multipart.client
 
 import scala.concurrent.{ExecutionContext, Future}
+
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import play.api.libs.ws.{StandaloneWSClient, StandaloneWSRequest, StandaloneWSResponse}
-// Implicit body writers for JsValue, String, ByteString, etc.
 import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.ws.JsonBodyWritables._
 
@@ -20,53 +20,16 @@ final class PlayWSHttpClient(
   }
 
   private def buildRequest(request: HttpRequest): StandaloneWSRequest = {
-    val url  = joinUrl(baseUrl, request.url)
-    val base = wsClient.url(url)
+    val url   = joinUrl(baseUrl, request.url)
+    val base  = wsClient.url(url)
       .withFollowRedirects(true)
     // follow redirects like curl unless caller overrode it
     val base2 = base.withFollowRedirects(true)
 
-    val withHeaders: StandaloneWSRequest = addDefaultsIfMissing(applyHeaders(base2, request.headers))
-
-    val withTimeout = request.timeout match {
-      case Some(t) => withHeaders.withRequestTimeout(t)
-      case None    => withHeaders
-    }
-
-    val withMethod = withTimeout.withMethod(request.method.name)
-
+    val withHeaders  = applyHeaders(base2, request.headers)
+    val withMethod   = withHeaders.withMethod(request.method.name)
     val finalRequest = setBody(withMethod, request)
-
-    // Debug logging
-    println(s"[DEBUG] Building request:")
-    println(s"  URL: $url")
-    println(s"  Method: ${request.method.name}")
-    println(s"  Headers:")
-    finalRequest.headers.foreach { case (name, values) =>
-      values.foreach(value => println(s"    $name: $value"))
-    }
-    println(s"  Body type: ${request.body.map(_.getClass.getSimpleName).getOrElse("None")}")
-
     finalRequest
-  }
-
-  private def addDefaultsIfMissing(req: StandaloneWSRequest): StandaloneWSRequest = {
-    def has(h: String) = req.headers.keys.exists(_.equalsIgnoreCase(h))
-
-    var r = req
-    if (!has("User-Agent"))
-      r = r.withHttpHeaders("User-Agent" -> "curl/8.7.1")
-    // Removing Accept and Accept-Language defaults as they can cause issues with some APIs
-    // Users can add them explicitly if needed
-    // if (!has("Accept"))
-    //   r = r.withHttpHeaders("Accept" -> "*/*")
-    // if (!has("Accept-Language"))
-    //   r = r.withHttpHeaders("Accept-Language" -> "en-US,en;q=0.9")
-    // Accept-Encoding is handled by AHC, but setting it can help parity:
-    // Commenting out to match behavior of raw requests
-    // if (!has("Accept-Encoding"))
-    //   r = r.withHttpHeaders("Accept-Encoding" -> "gzip, deflate, br")
-    r
   }
 
   private def joinUrl(base: String, path: String): String =
@@ -101,7 +64,7 @@ final class PlayWSHttpClient(
         // Stringify JSON to avoid any implicit writer issues
         // This ensures consistent behavior with raw .post(String) calls
         val jsonString = play.api.libs.json.Json.stringify(json)
-        val r = req.withBody(jsonString)
+        val r          = req.withBody(jsonString)
         if (hasContentType(request.headers)) r
         else r.withHttpHeaders("Content-Type" -> "application/json")
 
@@ -110,7 +73,7 @@ final class PlayWSHttpClient(
         if (hasContentType(request.headers)) r
         else r.withHttpHeaders("Content-Type" -> "text/plain; charset=UTF-8")
 
-      case Some(StringBody(str, ct))    =>
+      case Some(StringBody(str, ct)) =>
         val r = req.withBody(str)
         // Only set Content-Type if not already in headers
         if (hasContentType(request.headers)) {
@@ -134,16 +97,15 @@ final class PlayWSHttpClient(
   private def shouldAddCharset(contentType: String): Boolean = {
     val ct = contentType.toLowerCase
     (ct.startsWith("application/json") ||
-     ct.startsWith("application/xml") ||
-     ct.startsWith("text/")) &&
+      ct.startsWith("application/xml") ||
+      ct.startsWith("text/")) &&
     !ct.contains("charset")
   }
 
   /** Add charset=UTF-8 if not already present */
-  private def addCharsetIfMissing(contentType: String): String = {
+  private def addCharsetIfMissing(contentType: String): String =
     if (contentType.contains("charset")) contentType
     else s"$contentType; charset=UTF-8"
-  }
 }
 
 /** Wrapper for Play WS Response */
