@@ -31,134 +31,152 @@ object ShippingLabelClient extends App {
   val payload: JsValue = Json.parse(
     """
   {
-    "outputFormat": {
-      "x": 0,
-      "y": 0,
-      "outputPrintingType": "PDF_A4_300dpi",
-      "dematerialized": true,
-      "printCODDocument": false
-    },
-    "letter": {
-      "sender": {
-        "address": {
-          "companyName": "WSU RECETTE",
-          "lastName": "",
-          "firstName": "",
-          "phoneNumber": "",
-          "mobileNumber": "",
-          "email": "",
-          "line0": "",
-          "line1": "",
-          "line2": "55 rue d'Arcueil",
-          "line3": "",
-          "zipCode": "94150",
-          "city": "RUNGIS",
-          "provinceOuEtatName": null,
-          "countryCode": "FR",
-          "stateOrProvinceCode": null,
-          "doorCode1": "",
-          "doorCode2": "",
-          "intercom": ""
-        },
-        "serviceInfo": "",
-        "senderParcelRef": null,
-        "promotionCode": null
-      },
-      "addressee": {
-        "address": {
-          "companyName": null,
-          "lastName": "nom 3",
-          "firstName": null,
-          "phoneNumber": null,
-          "mobileNumber": null,
-          "email": null,
-          "line0": null,
-          "line1": null,
-          "line2": "adresse 3",
-          "line3": null,
-          "zipCode": "49000",
-          "city": "ANGERS",
-          "provinceOuEtatName": null,
-          "countryCode": "FR",
-          "stateOrProvinceCode": null,
-          "doorCode1": null,
-          "doorCode2": null,
-          "intercom": null
-        },
-        "serviceInfo": null,
-        "addresseeParcelRef": "ref 3",
-        "promotionCode": null
-      },
-      "service": {
-        "productCode": "DOM",
-        "depositDate": "2025-10-27",
-        "totalAmount": 1129,
-        "commercialName": "WSU RECETTE",
-        "orderNumber": null
-      },
-      "parcel": {
-        "pickupLocationId": null,
-        "weight": 3,
-        "hazmatFlag": false,
-        "hazmatCategory": null,
-        "hazmatPrintLogo": false,
-        "nonMachinable": false,
-        "disabledDeliveryBlockingCode": null,
-        "recommendationLevel": null,
-        "returnReceipt": null,
-        "insuranceValue": null,
-        "codamount": null,
-        "cod": false,
-        "ftd": null,
-        "ddp": null,
-        "instructions": null
-      },
-      "codSenderAddress": null,
-      "customsDeclarations": {
-        "includeCustomsDeclarations": false,
-        "numberOfCopies": 4,
-        "contents": {
-          "article": null,
-          "category": null,
-          "original": null,
-          "explanations": null
-        },
-        "comments": null,
-        "licenceNumber": null,
-        "certificatNumber": null,
-        "invoiceNumber": null,
-        "importerAddress": {
-          "companyName": null,
-          "lastName": null,
-          "firstName": null,
-          "city": null,
-          "zipCode": null,
-          "phoneNumber": null,
-          "mobileNumber": null,
-          "email": null,
-          "line0": null,
-          "line1": null,
-          "line2": null,
-          "line3": null
-        },
-        "importersReference": null,
-        "description": null,
-        "stateOrProvinceCode": null
-      }
-    },
-    "fields": {
-      "field": [
-        { "key": "OUTPUT_PRINT_TYPE_CN23", "value": "PDF_A4_300dpi" },
-        { "key": "CUSER_INFO_TEXT_3",      "value": "MANUEL" },
-        { "key": "CHECK_CITY",             "value": "false" },
-        { "key": "ddp",                    "value": "false" },
-        { "key": "PRINT_CUSTOMER_BARCODE", "value": null }
-      ],
-      "customField": [
-        { "key": "IncludeProforma", "value": "0" }
-      ]
-    }
-  }
+            "outputFormat": {
+                "x": 0,
+                "y": 0,
+                "outputPrintingType": "PDF_A4_300dpi",
+                "dematerialized": true,
+                "printCODDocument": false
+            },
+            "letter": {
+                "sender": {
+                    "address": {
+                        "companyName": "WSU RECETTE",
+                        "lastName": "",
+                        "firstName": "",
+                        "phoneNumber": "",
+                        "mobileNumber": "",
+                        "email": "",
+                        "line0": "",
+                        "line1": "",
+                        "line2": "55 rue d'Arcueil",
+                        "line3": "",
+                        "zipCode": "94150",
+                        "city": "RUNGIS",
+                        "provinceOuEtatName": null,
+                        "countryCode": "FR",
+                        "stateOrProvinceCode": null,
+                        "doorCode1": "",
+                        "doorCode2": "",
+                        "intercom": ""
+                    },
+                    "serviceInfo": "",
+                    "senderParcelRef": null,
+                    "promotionCode": null
+                },
+                "addressee": {
+                    "address": {
+                        "companyName": null,
+                        "lastName": "nom 3",
+                        "firstName": null,
+                        "phoneNumber": null,
+                        "mobileNumber": null,
+                        "email": null,
+                        "line0": null,
+                        "line1": null,
+                        "line2": "adresse 3",
+                        "line3": null,
+                        "zipCode": "49000",
+                        "city": "ANGERS",
+                        "provinceOuEtatName": null,
+                        "countryCode": "FR",
+                        "stateOrProvinceCode": null,
+                        "doorCode1": null,
+                        "doorCode2": null,
+                        "intercom": null
+                    },
+                    "serviceInfo": null,
+                    "addresseeParcelRef": "ref 3",
+                    "promotionCode": null
+                },
+                "service": {
+                    "productCode": "DOS",
+                    "depositDate": "2025-10-27",
+                    "totalAmount": 1234,
+                    "commercialName": "WSU RECETTE",
+                    "orderNumber": null
+                },
+                "parcel": {
+                    "pickupLocationId": null,
+                    "weight": 3,
+                    "hazmatFlag": false,
+                    "hazmatCategory": null,
+                    "hazmatPrintLogo": false,
+                    "nonMachinable": false,
+                    "disabledDeliveryBlockingCode": false,
+                    "recommendationLevel": null,
+                    "returnReceipt": null,
+                    "insuranceValue": null,
+                    "codamount": null,
+                    "cod": false,
+                    "ftd": null,
+                    "ddp": null,
+                    "instructions": null
+                },
+                "codSenderAddress": null,
+                "customsDeclarations": {
+                    "includeCustomsDeclarations": false,
+                    "numberOfCopies": 4,
+                    "contents": {
+                        "article": null,
+                        "category": null,
+                        "original": null,
+                        "explanations": null
+                    },
+                    "comments": null,
+                    "licenceNumber": null,
+                    "certificatNumber": null,
+                    "invoiceNumber": null,
+                    "importerAddress": {
+                        "companyName": null,
+                        "lastName": null,
+                        "firstName": null,
+                        "city": null,
+                        "zipCode": null,
+                        "phoneNumber": null,
+                        "mobileNumber": null,
+                        "email": null,
+                        "line0": null,
+                        "line1": null,
+                        "line2": null,
+                        "line3": null
+                    },
+                    "importersReference": null,
+                    "description": null,
+                    "stateOrProvinceCode": null
+                }
+            },
+            "fields": {
+                "field": [
+                    {
+                        "key": "OUTPUT_PRINT_TYPE_CN23",
+                        "value": "PDF_A4_300dpi"
+                    },
+                    {
+                        "key": "CUSER_INFO_TEXT_3",
+                        "value": "MANUEL"
+                    },
+                    {
+                        "key": "CHECK_CITY",
+                        "value": "false"
+                    },
+                    {
+                        "key": "ddp",
+                        "value": "false"
+                    },
+                    {
+                        "key": "PRINT_CUSTOMER_BARCODE",
+                        "value": null
+                    }
+                ],
+                "customField": [
+                    {
+                        "key": "IncludeProforma",
+                        "value": "0"
+                    }
+                ]
+            }
+        }
   """,
   )
 
@@ -175,7 +193,7 @@ object ShippingLabelClient extends App {
   // ========================================
 
   val apiBaseUrl = "https://qualification.colissimo.fr"
-  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "b912a29c4177f2a4366d0298a5fa407f")
+  val apiToken   = sys.env.getOrElse("SHIPPING_API_TOKEN", "bca3088be3fe5fb79f1c6d3122501e2f")
 
   // Create Play WS client
   val wsClient: StandaloneAhcWSClient = StandaloneAhcWSClient()
@@ -364,20 +382,14 @@ object ShippingLabelClient extends App {
     println(s"   Payload size: ${Json.stringify(payload).length} bytes")
     println()
 
-    // Custom parser config to handle large PDF labels (up to 1MB)
-    val parserConfig = com.multipart.parser.MultipartParserConfig(
-      boundary = "",  // Auto-detected from Content-Type header
-      maxMemoryBufferSize = 1024 * 1024,  // 1MB (PDF labels are ~80-100KB)
-      maxHeaderSize = 4096,  // 4KB (default)
-    )
-
     // Build and execute request using fluent API
     Multipart
       .request(httpClient)
       .post("/sls-ws/SlsServiceRest/SlsInternalService/generateLabel")
-      .withHeader("token", apiToken)
-      .withJsonBody(payload)
-      .withParserConfig(parserConfig)  // ← Add custom config here
+      .withHeader("token", "bca3088be3fe5fb79f1c6d3122501e2f")
+      // .addHttpHeaders("Content-Type" -> "application/json")
+      .withStringBody(Json.stringify(payload), "application/json")
+      // .withParserConfig(parserConfig)  // ← Add custom config here
       .withTimeout(30.seconds)
       .execute()
       .andThen {

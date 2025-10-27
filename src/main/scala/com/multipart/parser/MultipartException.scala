@@ -1,12 +1,12 @@
 package com.multipart.parser
 
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{Json, JsValue}
 
 /**
  * Base exception for multipart parsing errors
  */
 sealed abstract class MultipartException(message: String, cause: Throwable = null)
-    extends Exception(message, cause)
+  extends Exception(message, cause)
 
 /**
  * Exception thrown when response is not multipart
@@ -18,13 +18,12 @@ sealed abstract class MultipartException(message: String, cause: Throwable = nul
  */
 case class NonMultipartResponseException(
   contentType: String,
-  status:      Int,
-  jsonBody:    Option[JsValue] = None,
-  rawBody:     Option[Array[Byte]] = None,
-) extends MultipartException(
-      s"Not a multipart response. Content-Type: $contentType, Status: $status" +
-        jsonBody.fold("")(json => s"\nResponse body: ${Json.prettyPrint(json)}"),
-    ) {
+  status: Int,
+  jsonBody: Option[JsValue] = None,
+  rawBody: Option[Array[Byte]] = None) extends MultipartException(
+    s"Not a multipart response. Content-Type: $contentType, Status: $status" +
+      jsonBody.fold("")(json => s"\nResponse body: ${Json.prettyPrint(json)}"),
+  ) {
 
   /**
    * Check if this is a JSON error response
@@ -43,12 +42,13 @@ case class NonMultipartResponseException(
    * @return Option containing the value as JsValue
    */
   def getJsonField(path: String): Option[JsValue] =
-    jsonBody.flatMap { json =>
-      val pathParts = path.split('.')
-      pathParts.foldLeft(Option(json)) {
-        case (Some(js), key) => (js \ key).toOption
-        case (None, _)       => None
-      }
+    jsonBody.flatMap {
+      json =>
+        val pathParts = path.split('.')
+        pathParts.foldLeft(Option(json)) {
+          case (Some(js), key) => (js \ key).toOption
+          case (None, _)       => None
+        }
     }
 
   /**
@@ -56,12 +56,13 @@ case class NonMultipartResponseException(
    * Tries common error field names: "error", "message", "errorMessage", "detail"
    */
   def errorMessage: Option[String] =
-    jsonBody.flatMap { json =>
-      getJsonField("error").flatMap(_.asOpt[String])
-        .orElse(getJsonField("message").flatMap(_.asOpt[String]))
-        .orElse(getJsonField("errorMessage").flatMap(_.asOpt[String]))
-        .orElse(getJsonField("detail").flatMap(_.asOpt[String]))
-        .orElse(getJsonField("error_description").flatMap(_.asOpt[String]))
+    jsonBody.flatMap {
+      _ =>
+        getJsonField("error").flatMap(_.asOpt[String])
+          .orElse(getJsonField("message").flatMap(_.asOpt[String]))
+          .orElse(getJsonField("errorMessage").flatMap(_.asOpt[String]))
+          .orElse(getJsonField("detail").flatMap(_.asOpt[String]))
+          .orElse(getJsonField("error_description").flatMap(_.asOpt[String]))
     }
 
   /**
@@ -91,7 +92,7 @@ case class NonMultipartResponseException(
               case _                               => Map.empty[String, String]
             }
         }.toMap
-      case _                                 => Map.empty
+      case _                                => Map.empty
     }
 }
 
@@ -99,4 +100,4 @@ case class NonMultipartResponseException(
  * Exception thrown when multipart parsing fails
  */
 case class MultipartParsingException(message: String, cause: Throwable = null)
-    extends MultipartException(message, cause)
+  extends MultipartException(message, cause)

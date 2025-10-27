@@ -2,7 +2,8 @@
 
 ## Problem
 
-The multipart parser library was designed to handle multipart responses (multipart/form-data, multipart/related, etc.). However, some APIs may return JSON error responses instead of multipart when errors occur, particularly for HTTP error status codes (4xx, 5xx).
+The multipart parser library was designed to handle multipart responses (multipart/form-data, multipart/related, etc.).
+However, some APIs may return JSON error responses instead of multipart when errors occur, particularly for HTTP error status codes (4xx, 5xx).
 
 ### Example Scenario
 
