@@ -398,6 +398,729 @@ val streamingConfig = MultipartParserConfig(
 
 ---
 
+## Security & Resource Protection
+
+### 1. Security Vulnerabilities & Threats
+
+#### Priority: CRITICAL
+
+Multipart parsing is vulnerable to various attacks that can cause:
+- **Denial of Service (DOS):** Resource exhaustion
+- **Memory bombs:** Malicious payloads causing OOM
+- **Header injection:** Malicious headers with control characters
+- **Boundary confusion:** Crafted boundaries to bypass filters
+- **Infinite streams:** Never-ending multipart responses
+
+### 2. Current Security Posture
+
+#### ✅ Existing Protections
+
+1. **Memory bounds**
+   ```scala
+   maxMemoryBufferSize = 1024 * 1024  // 1MB default
+   maxHeaderSize = 4096               // 4KB default
+   ```
+
+2. **Stream backpressure**
+   - Pekko Streams provides natural backpressure
+   - Prevents unbounded buffering
+
+3. **Boundary validation**
+   - Boyer-Moore ensures valid boundary detection
+   - No regex-based attacks possible
+
+#### ⚠️ Missing Protections
+
+| Threat | Current State | Risk | Priority |
+|--------|--------------|------|----------|
+| Unlimited parts | ❌ No limit | HIGH | CRITICAL |
+| Oversized parts | ⚠️ Memory limit only | HIGH | CRITICAL |
+| Malicious boundaries | ⚠️ Basic validation | MEDIUM | HIGH |
+| Nested multipart | ❌ No protection | MEDIUM | MEDIUM |
+| Billion laughs attack | ❌ No protection | HIGH | HIGH |
+| Slow HTTP attack | ⚠️ Timeout only | MEDIUM | MEDIUM |
+| Header injection | ⚠️ Basic parsing | MEDIUM | HIGH |
+| ZIP bombs (compressed parts) | ❌ No protection | HIGH | MEDIUM |
+
+### 3. Security Enhancements
+
+#### A. Resource Limits
+
+**Implementation:**
+
+```scala
+case class ResourceLimits(
+  // Maximum number of parts in a multipart response
+  maxParts: Int = 100,
+
+  // Maximum size of a single part (bytes)
+  maxPartSize: Long = 100 * 1024 * 1024,  // 100MB
+
+  // Maximum total response size (bytes)
+  maxTotalSize: Long = 500 * 1024 * 1024,  // 500MB
+
+  // Maximum header size per part (bytes)
+  maxHeaderSize: Int = 4 * 1024,  // 4KB
+
+  // Maximum boundary length
+  maxBoundaryLength: Int = 70,  // RFC 2046: max 70 chars
+
+  // Maximum nesting level (for nested multipart)
+  maxNestingLevel: Int = 2,
+
+  // Timeout for parsing
+  parsingTimeout: Duration = 30.seconds,
+
+  // Enable strict mode (fail on any violation)
+  strictMode: Boolean = true
+)
+```
+
+**Usage:**
+
+```scala
+val secureConfig = MultipartParserConfig(
+  boundary = "",
+  maxMemoryBufferSize = 10 * 1024 * 1024,
+  maxHeaderSize = 4096,
+  resourceLimits = Some(ResourceLimits(
+    maxParts = 50,
+    maxPartSize = 10 * 1024 * 1024,  // 10MB per part
+    maxTotalSize = 100 * 1024 * 1024  // 100MB total
+  ))
+)
+```
+
+**Enforcement:**
+
+```scala
+class SecureMultipartParser {
+  private var partCount: Int = 0
+  private var totalBytesProcessed: Long = 0
+
+  def parsePart(data: ByteString, limits: ResourceLimits): Either[SecurityError, Part] = {
+    // Check part count limit
+    partCount += 1
+    if (partCount > limits.maxParts) {
+      return Left(TooManyPartsError(partCount, limits.maxParts))
+    }
+
+    // Check part size limit
+    if (data.size > limits.maxPartSize) {
+      return Left(PartTooLargeError(data.size, limits.maxPartSize))
+    }
+
+    // Check total size limit
+    totalBytesProcessed += data.size
+    if (totalBytesProcessed > limits.maxTotalSize) {
+      return Left(TotalSizeTooLargeError(totalBytesProcessed, limits.maxTotalSize))
+    }
+
+    // Parse part...
+    Right(parsedPart)
+  }
+}
+```
+
+#### B. Boundary Validation
+
+**Problem:** Malicious boundaries can cause parser confusion
+
+```scala
+// Dangerous: No validation
+val boundary = extractBoundary(contentType)  // Could be malicious
+
+// Safe: Strict validation
+def validateBoundary(boundary: String): Either[SecurityError, String] = {
+  // RFC 2046: Boundary must be 1-70 chars
+  if (boundary.isEmpty || boundary.length > 70) {
+    return Left(InvalidBoundaryLengthError(boundary.length))
+  }
+
+  // RFC 2046: Allowed chars: alphanumerics and -'()+_,./=?:
+  val validChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'()+_,./:=?"
+  if (!boundary.forall(validChars.contains)) {
+    return Left(InvalidBoundaryCharsError(boundary))
+  }
+
+  // Check for suspicious patterns
+  if (boundary.contains("\r") || boundary.contains("\n")) {
+    return Left(BoundaryInjectionError(boundary))
+  }
+
+  Right(boundary)
+}
+```
+
+#### C. Header Injection Protection
+
+**Problem:** Headers with control characters can cause parsing issues
+
+```scala
+def sanitizeHeader(name: String, value: String): Either[SecurityError, (String, String)] = {
+  // Check for control characters
+  def hasControlChars(s: String): Boolean =
+    s.exists(c => c < 32 || c == 127)
+
+  if (hasControlChars(name) || hasControlChars(value)) {
+    return Left(HeaderInjectionError(s"$name: $value"))
+  }
+
+  // Check for CRLF injection
+  if (name.contains("\r") || name.contains("\n") ||
+      value.contains("\r") || value.contains("\n")) {
+    return Left(CRLFInjectionError(s"$name: $value"))
+  }
+
+  // Limit header value length
+  if (value.length > 8192) {
+    return Left(HeaderTooLongError(value.length))
+  }
+
+  Right((name.trim, value.trim))
+}
+```
+
+#### D. Billion Laughs / ZIP Bomb Protection
+
+**Problem:** Compressed parts can expand dramatically
+
+```scala
+case class CompressionLimits(
+  // Maximum expansion ratio (output/input)
+  maxExpansionRatio: Double = 100.0,
+
+  // Maximum decompressed size
+  maxDecompressedSize: Long = 100 * 1024 * 1024  // 100MB
+)
+
+class SafeDecompressor(limits: CompressionLimits) {
+  def decompress(compressed: Array[Byte]): Either[SecurityError, Array[Byte]] = {
+    val inputSize = compressed.length
+    var outputSize = 0L
+
+    // Decompress with size tracking
+    val output = new ByteArrayOutputStream()
+    val decompressor = new GZIPInputStream(new ByteArrayInputStream(compressed))
+
+    val buffer = new Array[Byte](8192)
+    var read = 0
+
+    while ({read = decompressor.read(buffer); read != -1}) {
+      outputSize += read
+
+      // Check expansion ratio
+      val ratio = outputSize.toDouble / inputSize
+      if (ratio > limits.maxExpansionRatio) {
+        return Left(ExpansionRatioExceededError(ratio, limits.maxExpansionRatio))
+      }
+
+      // Check absolute size
+      if (outputSize > limits.maxDecompressedSize) {
+        return Left(DecompressedSizeTooLargeError(outputSize, limits.maxDecompressedSize))
+      }
+
+      output.write(buffer, 0, read)
+    }
+
+    Right(output.toByteArray)
+  }
+}
+```
+
+#### E. Slow HTTP Attack Protection
+
+**Problem:** Attacker sends data very slowly to tie up resources
+
+```scala
+case class TimeoutConfig(
+  // Overall request timeout
+  requestTimeout: Duration = 30.seconds,
+
+  // Timeout for receiving each chunk
+  chunkTimeout: Duration = 5.seconds,
+
+  // Minimum throughput (bytes/second)
+  minThroughput: Long = 1024  // 1KB/s
+)
+
+class ThroughputMonitor(config: TimeoutConfig) {
+  private var lastChunkTime: Long = System.currentTimeMillis()
+  private var totalBytes: Long = 0
+  private val startTime: Long = System.currentTimeMillis()
+
+  def onChunk(bytes: Int): Either[SecurityError, Unit] = {
+    val now = System.currentTimeMillis()
+    val timeSinceLastChunk = (now - lastChunkTime).millis
+
+    // Check chunk timeout
+    if (timeSinceLastChunk > config.chunkTimeout) {
+      return Left(ChunkTimeoutError(timeSinceLastChunk, config.chunkTimeout))
+    }
+
+    totalBytes += bytes
+    lastChunkTime = now
+
+    // Check overall throughput
+    val elapsed = (now - startTime).millis
+    if (elapsed > 1.second) {
+      val throughput = totalBytes / elapsed.toSeconds
+      if (throughput < config.minThroughput) {
+        return Left(ThroughputTooLowError(throughput, config.minThroughput))
+      }
+    }
+
+    Right(())
+  }
+}
+```
+
+### 4. Security Audit Checklist
+
+Before production deployment:
+
+- [ ] **Resource limits configured**
+  - [ ] Maximum parts limit set
+  - [ ] Maximum part size limit set
+  - [ ] Maximum total size limit set
+  - [ ] Parsing timeout configured
+
+- [ ] **Input validation enabled**
+  - [ ] Boundary validation
+  - [ ] Header sanitization
+  - [ ] Content-Type validation
+
+- [ ] **DOS protection active**
+  - [ ] Rate limiting configured
+  - [ ] Throughput monitoring enabled
+  - [ ] Circuit breaker configured
+
+- [ ] **Monitoring in place**
+  - [ ] Security metrics collected
+  - [ ] Anomaly detection active
+  - [ ] Alerts configured
+
+- [ ] **Testing completed**
+  - [ ] Malicious payload tests
+  - [ ] Load testing
+  - [ ] Penetration testing
+
+---
+
+## Memory Management for Large Files
+
+### 1. Current Memory Architecture
+
+#### Problem: All Parts Loaded in Memory
+
+```scala
+// Current implementation (PROBLEMATIC)
+def parse(response: HttpResponse): Future[MultipartResult] = {
+  response.bodyAsSource
+    .via(boundaryDetection)
+    .via(headerExtraction)
+    .mapAsync(extractBody)  // ⚠️ Each part fully buffered
+    .runWith(Sink.seq)       // ⚠️ All parts collected in memory
+    .map(parts => MultipartResult(parts.toList))
+}
+```
+
+**Impact:**
+- 100MB response → 200-300MB memory (parts + overhead)
+- 1GB response → OOM crash
+- Multiple concurrent requests → Heap exhaustion
+
+### 2. Streaming Architecture for Large Files
+
+#### Strategy: Three-Tier Memory Management
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Part Size                             │
+├──────────────┬──────────────────┬──────────────────────┤
+│   < 1MB      │   1MB - 100MB    │     > 100MB          │
+│  (Small)     │   (Medium)       │     (Large)          │
+├──────────────┼──────────────────┼──────────────────────┤
+│ Buffer in    │ Stream to disk   │ Stream directly      │
+│ memory       │ then read back   │ don't buffer         │
+└──────────────┴──────────────────┴──────────────────────┘
+```
+
+#### Implementation
+
+**A. Size-Based Strategy**
+
+```scala
+case class MemoryStrategy(
+  // Small parts: buffer in memory
+  smallPartThreshold: Long = 1 * 1024 * 1024,  // 1MB
+
+  // Medium parts: spill to disk
+  mediumPartThreshold: Long = 100 * 1024 * 1024,  // 100MB
+
+  // Large parts: stream only
+  // (anything above mediumPartThreshold)
+
+  // Temporary directory for disk spillover
+  tempDir: Path = Files.createTempDirectory("multipart-"),
+
+  // Clean up temp files automatically
+  autoCleanup: Boolean = true
+)
+
+sealed trait PartStorage
+case class InMemory(data: Array[Byte]) extends PartStorage
+case class OnDisk(file: Path, size: Long) extends PartStorage
+case class Streaming(source: Source[ByteString, _]) extends PartStorage
+
+case class MultipartPart(
+  info: PartInfo,
+  storage: PartStorage
+) {
+  // Lazy access to data
+  def getData: Future[Array[Byte]] = storage match {
+    case InMemory(data) =>
+      Future.successful(data)
+
+    case OnDisk(file, _) =>
+      Future {
+        Files.readAllBytes(file)
+      }
+
+    case Streaming(source) =>
+      source.runWith(Sink.fold(ByteString.empty)(_ ++ _))
+        .map(_.toArray)
+  }
+
+  // Stream access (zero-copy)
+  def getStream: Source[ByteString, _] = storage match {
+    case InMemory(data) =>
+      Source.single(ByteString(data))
+
+    case OnDisk(file, _) =>
+      FileIO.fromPath(file)
+
+    case Streaming(source) =>
+      source
+  }
+}
+```
+
+**B. Smart Part Parser**
+
+```scala
+class SmartPartParser(strategy: MemoryStrategy) {
+
+  def parsePart(
+    headers: Map[String, String],
+    bodySource: Source[ByteString, _]
+  ): Future[MultipartPart] = {
+
+    val contentLength = headers.get("Content-Length")
+      .flatMap(s => Try(s.toLong).toOption)
+
+    contentLength match {
+      // Small: buffer in memory
+      case Some(size) if size < strategy.smallPartThreshold =>
+        bufferInMemory(headers, bodySource)
+
+      // Medium: spill to disk
+      case Some(size) if size < strategy.mediumPartThreshold =>
+        spillToDisk(headers, bodySource)
+
+      // Large: keep streaming
+      case Some(size) =>
+        keepStreaming(headers, bodySource)
+
+      // Unknown size: use heuristic
+      case None =>
+        adaptiveStrategy(headers, bodySource)
+    }
+  }
+
+  private def bufferInMemory(
+    headers: Map[String, String],
+    source: Source[ByteString, _]
+  ): Future[MultipartPart] = {
+    source
+      .runWith(Sink.fold(ByteString.empty)(_ ++ _))
+      .map { bytes =>
+        MultipartPart(
+          info = PartInfo.fromHeaders(headers),
+          storage = InMemory(bytes.toArray)
+        )
+      }
+  }
+
+  private def spillToDisk(
+    headers: Map[String, String],
+    source: Source[ByteString, _]
+  ): Future[MultipartPart] = {
+    val tempFile = Files.createTempFile(strategy.tempDir, "part-", ".tmp")
+
+    source
+      .runWith(FileIO.toPath(tempFile))
+      .map { result =>
+        MultipartPart(
+          info = PartInfo.fromHeaders(headers),
+          storage = OnDisk(tempFile, result.count)
+        )
+      }
+  }
+
+  private def keepStreaming(
+    headers: Map[String, String],
+    source: Source[ByteString, _]
+  ): Future[MultipartPart] = {
+    // Return immediately, don't consume the stream
+    Future.successful(
+      MultipartPart(
+        info = PartInfo.fromHeaders(headers),
+        storage = Streaming(source)
+      )
+    )
+  }
+
+  private def adaptiveStrategy(
+    headers: Map[String, String],
+    source: Source[ByteString, _]
+  ): Future[MultipartPart] = {
+    // Start buffering, switch to disk if too large
+    var bytesBuffered = 0L
+    var buffer = ByteString.empty
+    var spilledFile: Option[Path] = None
+
+    source
+      .mapAsync(1) { chunk =>
+        bytesBuffered += chunk.size
+
+        if (bytesBuffered < strategy.smallPartThreshold) {
+          // Still small, keep buffering
+          buffer = buffer ++ chunk
+          Future.successful(Left(chunk))
+        } else if (spilledFile.isEmpty) {
+          // Getting large, start spilling
+          val file = Files.createTempFile(strategy.tempDir, "part-", ".tmp")
+          spilledFile = Some(file)
+          val out = Files.newOutputStream(file)
+          out.write(buffer.toArray)
+          out.write(chunk.toArray)
+          buffer = ByteString.empty  // Release memory
+          Future.successful(Right(out))
+        } else {
+          // Already spilling, continue
+          val out = spilledFile.get
+          Future.successful(Right(chunk))
+        }
+      }
+      .runWith(Sink.ignore)
+      .map { _ =>
+        spilledFile match {
+          case Some(file) =>
+            MultipartPart(
+              info = PartInfo.fromHeaders(headers),
+              storage = OnDisk(file, bytesBuffered)
+            )
+          case None =>
+            MultipartPart(
+              info = PartInfo.fromHeaders(headers),
+              storage = InMemory(buffer.toArray)
+            )
+        }
+      }
+  }
+}
+```
+
+**C. Selective Part Loading**
+
+```scala
+// Only load parts that match criteria
+def parseSelective(
+  response: HttpResponse,
+  filter: PartInfo => Boolean
+): Future[List[MultipartPart]] = {
+
+  response.bodyAsSource
+    .via(boundaryDetection)
+    .via(headerExtraction)
+    .mapAsync(1) { headers =>
+      val info = PartInfo.fromHeaders(headers)
+
+      if (filter(info)) {
+        // Load this part
+        bodyExtraction(headers)
+      } else {
+        // Skip this part (consume and discard)
+        Future.successful(None)
+      }
+    }
+    .collect { case Some(part) => part }
+    .runWith(Sink.seq)
+    .map(_.toList)
+}
+
+// Usage:
+val result = parseSelective(response, part =>
+  part.isPdf || part.isJson  // Only load PDFs and JSON
+)
+```
+
+**D. Lazy Part Access**
+
+```scala
+// Don't load parts until accessed
+case class LazyMultipartResult(
+  metadata: MultipartMetadata,
+  partsSource: Source[MultipartPart, _]
+) {
+  // Get parts as a stream
+  def parts: Source[MultipartPart, _] = partsSource
+
+  // Materialize only specific parts
+  def getPart(index: Int): Future[Option[MultipartPart]] = {
+    partsSource
+      .zipWithIndex
+      .collect { case (part, i) if i == index => part }
+      .runWith(Sink.headOption)
+  }
+
+  // Get parts by predicate
+  def findParts(predicate: PartInfo => Boolean): Future[List[MultipartPart]] = {
+    partsSource
+      .filter(part => predicate(part.info))
+      .runWith(Sink.seq)
+      .map(_.toList)
+  }
+
+  // Get first matching part
+  def findFirst(predicate: PartInfo => Boolean): Future[Option[MultipartPart]] = {
+    partsSource
+      .filter(part => predicate(part.info))
+      .runWith(Sink.headOption)
+  }
+}
+```
+
+### 3. Memory Usage Comparison
+
+#### Before: All Parts in Memory
+
+```
+Request: 100MB multipart (10 x 10MB parts)
+
+Memory timeline:
+  0s: ───────────────────────────────  0MB
+ 10s: ████████████───────────────────  50MB (5 parts loaded)
+ 20s: ████████████████████████████──  100MB (10 parts loaded)
+ 25s: ████████████████████████████──  100MB (all in memory)
+ 30s: ───────────────────────────────  0MB (response complete)
+
+Peak memory: ~200MB (parts + overhead + GC)
+```
+
+#### After: Streaming with Spillover
+
+```
+Request: 100MB multipart (10 x 10MB parts)
+
+Memory timeline:
+  0s: ───────────────────────────────  0MB
+ 10s: ██─────────────────────────────  10MB (1 part in memory)
+ 20s: ██─────────────────────────────  10MB (spill to disk)
+ 25s: ██─────────────────────────────  10MB (streaming)
+ 30s: ───────────────────────────────  0MB (complete)
+
+Peak memory: ~20MB (1 part + overhead)
+Disk usage: ~100MB (temporary files)
+```
+
+**Improvement: 90% memory reduction**
+
+### 4. Configuration Examples
+
+#### High-Memory Server (lots of RAM)
+
+```scala
+val config = MemoryStrategy(
+  smallPartThreshold = 10 * 1024 * 1024,   // 10MB
+  mediumPartThreshold = 100 * 1024 * 1024, // 100MB
+  autoCleanup = true
+)
+
+// Buffer more in memory, less disk I/O
+```
+
+#### Low-Memory Server (limited RAM)
+
+```scala
+val config = MemoryStrategy(
+  smallPartThreshold = 512 * 1024,         // 512KB
+  mediumPartThreshold = 5 * 1024 * 1024,   // 5MB
+  autoCleanup = true
+)
+
+// Aggressive disk spillover
+```
+
+#### Streaming-Only Mode (minimal memory)
+
+```scala
+val config = MemoryStrategy(
+  smallPartThreshold = 0,                  // Never buffer
+  mediumPartThreshold = 0,                 // Never spill
+  autoCleanup = true
+)
+
+// All parts are streamed, zero buffering
+```
+
+### 5. Memory Monitoring
+
+```scala
+class MemoryMonitor {
+  private val runtime = Runtime.getRuntime
+
+  def checkMemory(): MemoryStatus = {
+    val maxMemory = runtime.maxMemory()
+    val totalMemory = runtime.totalMemory()
+    val freeMemory = runtime.freeMemory()
+    val usedMemory = totalMemory - freeMemory
+    val usagePercent = (usedMemory.toDouble / maxMemory) * 100
+
+    MemoryStatus(
+      used = usedMemory,
+      total = totalMemory,
+      max = maxMemory,
+      usagePercent = usagePercent,
+      threshold = if (usagePercent > 90) "CRITICAL"
+                  else if (usagePercent > 75) "WARNING"
+                  else "OK"
+    )
+  }
+
+  def withMemoryCheck[T](f: => Future[T]): Future[T] = {
+    val before = checkMemory()
+
+    if (before.usagePercent > 90) {
+      // Trigger GC before processing
+      System.gc()
+      Thread.sleep(100)
+    }
+
+    f.andThen {
+      case _ =>
+        val after = checkMemory()
+        if (after.usagePercent > 95) {
+          logger.error(s"Memory critically low: ${after.usagePercent}%")
+        }
+    }
+  }
+}
+```
+
+---
+
 ## Metrics & Benchmarking
 
 ### 1. Key Performance Indicators (KPIs)
