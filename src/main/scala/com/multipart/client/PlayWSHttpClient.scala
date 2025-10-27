@@ -35,7 +35,19 @@ final class PlayWSHttpClient(
 
     val withMethod = withTimeout.withMethod(request.method.name)
 
-    setBody(withMethod, request)
+    val finalRequest = setBody(withMethod, request)
+
+    // Debug logging
+    println(s"[DEBUG] Building request:")
+    println(s"  URL: $url")
+    println(s"  Method: ${request.method.name}")
+    println(s"  Headers:")
+    finalRequest.headers.foreach { case (name, values) =>
+      values.foreach(value => println(s"    $name: $value"))
+    }
+    println(s"  Body type: ${request.body.map(_.getClass.getSimpleName).getOrElse("None")}")
+
+    finalRequest
   }
 
   private def addDefaultsIfMissing(req: StandaloneWSRequest): StandaloneWSRequest = {
@@ -44,13 +56,16 @@ final class PlayWSHttpClient(
     var r = req
     if (!has("User-Agent"))
       r = r.withHttpHeaders("User-Agent" -> "curl/8.7.1")
-    if (!has("Accept"))
-      r = r.withHttpHeaders("Accept" -> "*/*")
-    if (!has("Accept-Language"))
-      r = r.withHttpHeaders("Accept-Language" -> "en-US,en;q=0.9")
+    // Removing Accept and Accept-Language defaults as they can cause issues with some APIs
+    // Users can add them explicitly if needed
+    // if (!has("Accept"))
+    //   r = r.withHttpHeaders("Accept" -> "*/*")
+    // if (!has("Accept-Language"))
+    //   r = r.withHttpHeaders("Accept-Language" -> "en-US,en;q=0.9")
     // Accept-Encoding is handled by AHC, but setting it can help parity:
-    if (!has("Accept-Encoding"))
-      r = r.withHttpHeaders("Accept-Encoding" -> "gzip, deflate, br")
+    // Commenting out to match behavior of raw requests
+    // if (!has("Accept-Encoding"))
+    //   r = r.withHttpHeaders("Accept-Encoding" -> "gzip, deflate, br")
     r
   }
 
@@ -96,7 +111,15 @@ final class PlayWSHttpClient(
         else r.withHttpHeaders("Content-Type" -> "text/plain; charset=UTF-8")
 
       case Some(StringBody(str, ct))    =>
-        req.withBody(str).withHttpHeaders("Content-Type" -> ct)
+        val r = req.withBody(str)
+        // Only set Content-Type if not already in headers
+        if (hasContentType(request.headers)) {
+          r
+        } else {
+          // Add charset=UTF-8 if not already present for text-based content types
+          val contentType = if (shouldAddCharset(ct)) addCharsetIfMissing(ct) else ct
+          r.withHttpHeaders("Content-Type" -> contentType)
+        }
 
       case Some(BytesBody(bytes, null)) =>
         val r = req.withBody(ByteString(bytes))
@@ -106,6 +129,21 @@ final class PlayWSHttpClient(
       case Some(BytesBody(bytes, ct)) /* if ct != null */ =>
         req.withBody(ByteString(bytes)).withHttpHeaders("Content-Type" -> ct)
     }
+
+  /** Check if charset should be added to the content type */
+  private def shouldAddCharset(contentType: String): Boolean = {
+    val ct = contentType.toLowerCase
+    (ct.startsWith("application/json") ||
+     ct.startsWith("application/xml") ||
+     ct.startsWith("text/")) &&
+    !ct.contains("charset")
+  }
+
+  /** Add charset=UTF-8 if not already present */
+  private def addCharsetIfMissing(contentType: String): String = {
+    if (contentType.contains("charset")) contentType
+    else s"$contentType; charset=UTF-8"
+  }
 }
 
 /** Wrapper for Play WS Response */
