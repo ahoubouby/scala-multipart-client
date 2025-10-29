@@ -25,6 +25,22 @@ lazy val commonSettings = Seq(
   Test / parallelExecution := false,
   Test / fork              := true,
   Test / testOptions      += Tests.Argument(TestFrameworks.ScalaTest, "-oD"),
+
+  // ----------------------------------------
+  // Test Coverage Settings
+  // ----------------------------------------
+  coverageMinimumStmtTotal := 70,
+  coverageMinimumBranchTotal := 60,
+  coverageFailOnMinimum := false,  // Don't fail build, just warn
+  coverageHighlighting := true,
+
+  // Exclude generated files and examples from coverage
+  coverageExcludedPackages := ".*\\.examples\\..*;.*\\.TestFixtures.*",
+
+  // Generate XML report for CI/CD
+  coverageOutputXML := true,
+  coverageOutputHTML := true,
+  coverageOutputCobertura := false,
 )
 
 // ========================================

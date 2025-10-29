@@ -1,6 +1,32 @@
 # Scala Multipart Client
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.ahoubouby/scala-multipart-client_2.13.svg?label=Maven%20Central&color=blue)](https://search.maven.org/search?q=g:%22io.github.ahoubouby%22%20AND%20a:%22scala-multipart-client_2.13%22)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Scala Version](https://img.shields.io/badge/scala-2.13.16-red.svg)](https://www.scala-lang.org/download/2.13.16.html)
+[![Test Coverage](https://img.shields.io/badge/coverage-70%25-orange.svg)](#test-coverage)
+[![GitHub Issues](https://img.shields.io/github/issues/ahoubouby/scala-multipart-client.svg)](https://github.com/ahoubouby/scala-multipart-client/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/ahoubouby/scala-multipart-client.svg?style=social)](https://github.com/ahoubouby/scala-multipart-client)
+
 A generic, type-safe Scala library for parsing multipart HTTP responses with support for `multipart/form-data`, `multipart/related`, and `multipart/mixed` formats.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Supported Formats](#supported-formats)
+- [Advanced Features](#advanced-features)
+- [Testing](#testing)
+- [Building](#building)
+- [Examples](#examples)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Features
 
@@ -297,13 +323,39 @@ sbt clean coverage test coverageReport
 
 # Run tests continuously
 sbt ~test
+
+# Check coverage threshold
+sbt coverage test coverageReport
+# Open: target/scala-2.13/scoverage-report/index.html
 ```
+
+### Test Coverage
+
+[![Test Coverage](https://img.shields.io/badge/coverage-70%25-orange.svg)](#test-coverage)
+
+Current coverage: **~70%** (Target: **85%+**)
+
+| Component | Coverage | Status |
+|-----------|----------|--------|
+| Utils (BoyerMoore, ContentType) | 80%+ | ✅ Good |
+| Classifiers | 70%+ | ⚠️ Needs improvement |
+| Model | 50%+ | ⚠️ Needs improvement |
+| Parser | 60%+ | ⚠️ Needs improvement |
+| API | 20%+ | ❌ Critical - needs tests |
+| Client | 0% | ❌ Critical - needs tests |
+
+**Coverage Goals:**
+- Minimum statement coverage: 70%
+- Minimum branch coverage: 60%
+- Target overall coverage: 85%+
+
+See [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) for detailed testing strategy.
 
 ### Test Structure
 
 ```
 src/test/scala/com/multipart/
-├── TestFixtures.scala           # Common test data and helpers
+├── TestFixtures.scala                  # Common test data and helpers
 ├── utils/
 │   ├── BoyerMooreSpec.scala           # Boyer-Moore algorithm tests
 │   └── ContentTypeDetectorSpec.scala  # Content detection tests
@@ -313,20 +365,37 @@ src/test/scala/com/multipart/
 │   ├── MultipartPartSpec.scala        # MultipartPart tests
 │   └── MultipartResultSpec.scala      # MultipartResult tests
 ├── parser/
-│   └── FormatDetectorSpec.scala       # Format detection tests
+│   ├── FormatDetectorSpec.scala       # Format detection tests
+│   ├── JsonErrorResponseSpec.scala    # Error handling tests
+│   └── IncompleteMultipartSpec.scala  # Edge case tests
 ├── api/
-│   └── (API layer tests)
+│   └── MultipartRequestBuilderSpec.scala  # API layer tests
 └── integration/
-    └── (End-to-end tests)
+    └── (End-to-end tests - coming soon)
 ```
 
-### Test Coverage
+### Test Categories
 
-- **Utils**: BoyerMoore algorithm, content type detection
-- **Classifiers**: FormData, Related, Mixed, Unknown, Chained
-- **Model**: MultipartPart, MultipartResult, format detection
-- **Parser**: FormatDetector, boundary extraction, config generation
-- **Integration**: End-to-end multipart parsing scenarios
+**Unit Tests (Current):**
+- ✅ Boyer-Moore algorithm
+- ✅ Content type detection
+- ✅ All classifiers (FormData, Related, Mixed, Unknown, Chained)
+- ✅ MultipartPart and MultipartResult
+- ✅ Format detection and boundary extraction
+- ✅ JSON error response handling
+- ✅ Incomplete multipart responses
+- ⚠️ MultipartRequestBuilder (basic tests only)
+
+**Integration Tests (Planned):**
+- ❌ Real API integration tests
+- ❌ Large file handling tests
+- ❌ Concurrent request tests
+- ❌ Error handling scenarios
+
+**Performance Tests (Planned):**
+- ❌ Benchmark suite
+- ❌ Memory profiling tests
+- ❌ Throughput tests
 
 ### Writing Tests
 
@@ -487,10 +556,98 @@ Multipart.request(httpClient)
   }
 ```
 
-## License
+## Documentation
 
-MIT License
+### 📚 User Guides
+- [Quick Start Guide](docs/getting-started.md) _(coming soon)_
+- [Best Practices](docs/best-practices.md) _(coming soon)_
+- [Performance Tuning](docs/performance-tuning.md) _(coming soon)_
+- [Error Handling Guide](docs/error-handling.md) _(coming soon)_
+
+### 📖 Reference Documentation
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design and data flow
+- [Troubleshooting Guide](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Parsing Issues Analysis](docs/PARSING_ISSUES_ANALYSIS.md) - Deep dive into parsing
+- [JSON Error Handling](docs/JSON_ERROR_HANDLING.md) - Error response handling
+- [Improvement Plan](docs/IMPROVEMENT_PLAN.md) - Roadmap and future enhancements
+- [Publishing Guide](docs/PUBLISHING.md) - Release process
+
+### 🔧 API Documentation
+- [Scaladoc](https://ahoubouby.github.io/scala-multipart-client/api/) _(coming soon)_
+
+### 💡 Examples
+- [Shipping Label Client](examples/src/main/scala/com/ahoubouby/multipart/examples/ShippingLabelClient.scala) - Complete real-world example
+
+### 🎯 Roadmap
+
+**Current Version: 0.1.0**
+
+See [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) for detailed roadmap:
+- **Phase 1 (v0.2.0):** Stability & Testing - 85%+ test coverage
+- **Phase 2 (v0.3.0):** Performance & Observability - Metrics, benchmarks
+- **Phase 3 (v0.4.0):** Features - HTTP/2, OAuth, streaming
+- **Phase 4 (v1.0.0):** Production-ready release
+
+---
 
 ## Contributing
 
-Contributions welcome! Please read CONTRIBUTING.md for details.
+Contributions are welcome! Here's how you can help:
+
+### 🐛 Reporting Issues
+- Check [existing issues](https://github.com/ahoubouby/scala-multipart-client/issues)
+- Provide detailed reproduction steps
+- Include version information and environment details
+
+### 💻 Contributing Code
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Write tests for your changes
+4. Ensure all tests pass (`sbt test`)
+5. Check code coverage (`sbt coverage test coverageReport`)
+6. Format code (`sbt scalafmt`)
+7. Commit your changes (`git commit -m 'Add amazing feature'`)
+8. Push to the branch (`git push origin feature/amazing-feature`)
+9. Open a Pull Request
+
+### 📝 Contributing Documentation
+- Fix typos and improve clarity
+- Add examples and use cases
+- Write tutorials and guides
+
+### ✅ Code Quality Standards
+- Minimum 70% test coverage for new code
+- Follow existing code style (enforced by scalafmt)
+- Write meaningful commit messages
+- Add Scaladoc for public APIs
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details
+
+Copyright (c) 2025 Ahmed Houbouby
+
+---
+
+## Acknowledgments
+
+Built with:
+- [Apache Pekko](https://pekko.apache.org/) - Reactive streams
+- [Play Framework](https://www.playframework.com/) - HTTP client
+- [ScalaTest](https://www.scalatest.org/) - Testing framework
+
+Inspired by the need for better multipart response handling in Scala applications.
+
+---
+
+## Support
+
+- 📧 Email: ahoubouby@example.com
+- 🐛 Issues: [GitHub Issues](https://github.com/ahoubouby/scala-multipart-client/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/ahoubouby/scala-multipart-client/discussions)
+
+---
+
+**⭐ Star this repo if you find it useful!**
