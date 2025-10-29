@@ -592,34 +592,34 @@ See [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) for detailed roadmap:
 
 ## Contributing
 
-Contributions are welcome! Here's how you can help:
+We welcome contributions from the community! Whether you're fixing a bug, adding a feature, or improving documentation, your help is appreciated.
 
-### 🐛 Reporting Issues
-- Check [existing issues](https://github.com/ahoubouby/scala-multipart-client/issues)
-- Provide detailed reproduction steps
-- Include version information and environment details
+**Quick Links:**
+- 📖 [Contributing Guide](CONTRIBUTING.md) - Complete contribution guidelines
+- 🐛 [Report a Bug](https://github.com/ahoubouby/scala-multipart-client/issues/new?template=bug_report.md)
+- 💡 [Request a Feature](https://github.com/ahoubouby/scala-multipart-client/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/ahoubouby/scala-multipart-client/discussions)
 
-### 💻 Contributing Code
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Write tests for your changes
-4. Ensure all tests pass (`sbt test`)
-5. Check code coverage (`sbt coverage test coverageReport`)
-6. Format code (`sbt scalafmt`)
-7. Commit your changes (`git commit -m 'Add amazing feature'`)
-8. Push to the branch (`git push origin feature/amazing-feature`)
-9. Open a Pull Request
+### Quick Start for Contributors
 
-### 📝 Contributing Documentation
-- Fix typos and improve clarity
-- Add examples and use cases
-- Write tutorials and guides
+1. **Fork** the repository
+2. **Clone** your fork: `git clone https://github.com/YOUR_USERNAME/scala-multipart-client.git`
+3. **Create** a branch: `git checkout -b feature/amazing-feature`
+4. **Make** your changes
+5. **Test**: `sbt test` and `sbt coverage test coverageReport`
+6. **Format**: `sbt scalafmt`
+7. **Commit**: `git commit -m 'feat: Add amazing feature'`
+8. **Push**: `git push origin feature/amazing-feature`
+9. **Open** a Pull Request
 
-### ✅ Code Quality Standards
-- Minimum 70% test coverage for new code
-- Follow existing code style (enforced by scalafmt)
-- Write meaningful commit messages
-- Add Scaladoc for public APIs
+### Code Quality Standards
+- ✅ Minimum 70% test coverage for new code
+- ✅ Follow Scala style guide (enforced by scalafmt)
+- ✅ Write meaningful commit messages
+- ✅ Add Scaladoc for public APIs
+- ✅ All tests must pass
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
